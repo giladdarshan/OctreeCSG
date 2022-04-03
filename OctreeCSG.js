@@ -95,7 +95,9 @@ class OctreeCSG {
     }
 
     calcBox() {
-
+        if (!this.bounds) {
+            this.bounds = new Box3();
+        }
         this.box = this.bounds.clone();
 
         // offset small ammount to account for regular grid
@@ -913,6 +915,189 @@ class OctreeCSG {
             this.subTrees[i].deletePolygonsByState(state, strict);
         }
     }
+    deletePolygonsByStates(states = ["back"], strict = false, debug = false) {
+        if (this.polygons.length > 0) {
+            let polygonArr = this.polygons.slice();
+            if (!Array.isArray(states)) {
+                states = [states];
+            }
+            // let aVector = new Vector3(1, -5, 5);
+            // let bVector = new Vector3(1, -5, 1);
+            // let cVector = new Vector3(5, -5, 5);
+            // // console.log("debug?", debug, states);
+            
+            polygonArr.forEach(polygon => {
+                // states.forEach(state => {
+                // if (polygon.thisone) {
+                //     console.log("FOUND? 1", polygon)
+                //     debug = true;
+                // }
+                // else {
+                //     // console.log("AAAAAAAA", polygon);
+                //     debug = false;
+                // }
+                // debug = true;
+                /*
+                Check all previous states of the polygon for several states
+                * strict:
+                    loop over polygons
+                    if previous state not one of provided states (not included in states array), break
+
+                */
+                if (polygon.valid) {
+                    let found = false;
+                    if (strict) {
+                        if ((states.includes(polygon.state)) && (((polygon.previousState !== "undecided") && (states.includes(polygon.previousState))) || (polygon.previousState == "undecided"))) {
+                            // debug && console.log("A");
+                            found = true;
+                            let foundCounter = 0;
+                            let statesObj = {};
+                            states.forEach(state => statesObj[state] = false);
+                            for (let i = 0; i < polygon.previousStates.length; i++) {
+                                // let foundArr = states.map(() => false);                                
+                                if (!states.includes(polygon.previousStates[i])) { // if previous state not one of provided states (not included in states array), break
+                                    // debug && console.log("B", polygon.previousStates[i]);
+                                    found = false;
+                                    break;
+                                }
+                                else {
+                                    statesObj[polygon.previousStates[i]] = true;
+                                }
+                            }
+                            if (found) {
+                                for (let state in statesObj) {
+                                    if (statesObj[state] === false) {
+                                        found = false;
+                                        break;
+                                    }
+                                }
+                            }
+                            /*let statesCounter = states.length;
+                            let foundArr = states.map(() => false);
+
+                            for (let i = 0; i < polygon.previousStates.length; i++) {
+                                for (let j = 0; j < states.length; j++) {
+                                    if (polygon.previousStates[i] == states[j]) {
+                                    //         debug && console.log("B", polygon.previousStates[i], states[j]);
+                                        foundArr[j] = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            if (foundArr.includes(false)) {
+                                found = false;
+                            }
+                            else {
+                                found = true;
+                            }
+                                    //     else {
+                                    //         debug && console.log("C", polygon.previousStates[i], states[j]);
+                                    //         // found = false;
+                                    //         // break;
+                                    //     }
+                                    // }
+                                    
+                                    if (!states.includes(polygon.previousStates[i])) {
+                                        debug && console.log("B", polygon.previousStates[i]);
+                                        found = false;
+                                        break;
+                                    }
+                                    else {
+                                        debug && console.log("C", polygon.previousStates[i]);
+                                    }
+                                }
+                            }
+                            if (!found || (statesCounter > 0)) {
+                                debug && console.log("D");
+                                found = false;
+                                // break;
+                            }
+                            */
+                            if (found) {
+                                // debug && console.log("E");
+                                let polygonIndex = this.polygons.indexOf(polygon);
+                                if (polygonIndex > -1) {
+                                    // debug && console.log("F", polygon);
+                                    // polygon.setInvalid();
+                                    this.polygons.splice(polygonIndex, 1);
+                                    polygon.delete();
+                                }
+                                else {
+                                    polygon.setInvalid();
+                                }
+                            }
+                        }
+                        // debug && console.log("G");
+                        // let polygonStates = polygon.previousStates.filter(s => ())
+                        // if (polygon.checkAllStates(state)) {
+                        //     // console.log("Invalidating", polygon);
+                        //     polygon.setInvalid();
+                        // }
+                    }
+                    else {
+                        found = false;
+                        if (states.includes(polygon.state)) {
+                            found = true;
+                        }
+                        else if ((polygon.previousState !== "undecided") && (states.includes(polygon.previousState))) {
+                            found = true;
+                        }
+                        else if (polygon.previousStates.length > 0) {
+                            for (let i = 0; i < polygon.previousStates.length; i++) {
+                                if (states.includes(polygon.previousStates[i])) {
+                                    found = true;
+                                    break;
+                                }
+                            }
+                        }
+
+
+                        // if ((polygon.previousState !== "undecided")) {
+                        //     if (states.includes(polygon.previousState)) {
+
+                        //     }
+                        // }
+                        // else {
+
+                        // }
+                    }
+                    if (found) {
+                        let polygonIndex = this.polygons.indexOf(polygon);
+                        if (polygonIndex > -1) {
+                            // polygon.setInvalid();
+                            this.polygons.splice(polygonIndex, 1);
+                            polygon.delete();
+                        }
+                        else {
+                            polygon.setInvalid();
+                        }
+                    }
+                    // else {
+                    //     if (polygon.state == state) {
+                    //         polygon.setInvalid();
+                    //     }
+                    // }
+                    // if ((strict && polygon.checkAllStates(state)) || (!strict && polygon.state == state)) {
+                    //     // console.log("Invalidating", polygon);
+                    //     let polygonIndex = this.polygons.indexOf(polygon);
+                    //     if (polygonIndex > -1) {
+                    //         // polygon.setInvalid();
+                    //         this.polygons.splice(polygonIndex, 1);
+                    //         polygon.delete();
+                    //     }
+                    //     else {
+                    //         polygon.setInvalid();
+                    //     }
+                    //     // polygon.delete();
+                    // }
+                }
+                // });
+            });
+        }
+        for (let i = 0; i < this.subTrees.length; i++) {
+            this.subTrees[i].deletePolygonsByStates(states, strict, debug);
+        }
+    }
     deletePolygonsByIntersection(intersects) {
         if (intersects == undefined) {
             return;
@@ -1528,17 +1713,26 @@ OctreeCSG.subtract = function (octreeA, octreeB) {
         octreeA.handleIntersectingPolygons(octreeB);
         octreeB.handleIntersectingPolygons(octreeA);
 
+        octreeA.deletePolygonsByStates(["back", "coplanar-front"], true);
         octreeA.deletePolygonsByState("back", true);
-        octreeB.deletePolygonsByState("front", true);
-
-        octreeB.deletePolygonsByState("front", false);
         octreeA.deletePolygonsByState("inside", false);
+        
+        octreeB.deletePolygonsByStates(["back", "coplanar-front"], true);
+        octreeB.deletePolygonsByState("front", true);
+        octreeB.deletePolygonsByState("front", false);
         octreeB.deletePolygonsByState("outside", false);
         octreeB.deletePolygonsByIntersection(false);
         octreeB.invert();
 
         octreeA.getPolygonCallback(octree.addPolygon.bind(octree));
         octreeB.getPolygonCallback(octree.addPolygon.bind(octree));
+
+        // let polys_test = octreeA.getPolygons();
+        // let limit = Math.min(polys_test.length, 50);
+        // for (let i = 0; i < limit; i++) {
+        //     console.log(i, polys_test[i]);
+        //     octree.addPolygon(polys_test[i]);
+        // }
 
 
         if (octreeA.mesh.material.side !== currentMeshSideA) {
@@ -1551,7 +1745,9 @@ OctreeCSG.subtract = function (octreeA, octreeB) {
     else {
         octreeA.getPolygonCallback(octree.addPolygon.bind(octree));
     }
+
     octree.buildTree();
+
     return octree;
 }
 
@@ -1571,25 +1767,31 @@ OctreeCSG.intersect = function (octreeA, octreeB) {
 
         octreeA.handleIntersectingPolygons(octreeB);
         octreeB.handleIntersectingPolygons(octreeA);
-
+        
         octreeA.deletePolygonsByState("front", true);
-        octreeB.deletePolygonsByState("front", true);
-
         octreeA.deletePolygonsByState("front", false);
-        octreeB.deletePolygonsByState("front", false);
-
         octreeA.deletePolygonsByState("outside", false);
+        
+        octreeB.deletePolygonsByStates(["back", "coplanar-front"], true);
+        octreeB.deletePolygonsByState("front", true);
+        octreeB.deletePolygonsByState("front", false);
         octreeB.deletePolygonsByState("outside", false);
         
         octreeA.deletePolygonsByIntersection(false);
         octreeB.deletePolygonsByIntersection(false);
-        
-        octreeA.invert();
-        octreeB.invert();
+
+        // octreeA.invert();
+        // octreeB.invert();
 
         octreeA.getPolygonCallback(octree.addPolygon.bind(octree));
         octreeB.getPolygonCallback(octree.addPolygon.bind(octree));
 
+        // let polys_test = octreeB.getPolygons();
+        // let limit = Math.min(polys_test.length, 50);
+        // for (let i = 0; i < limit; i++) {
+        //     console.log(i, polys_test[i]);
+        //     octree.addPolygon(polys_test[i]);
+        // }
 
         if (octreeA.mesh.material.side !== currentMeshSideA) {
             octreeA.mesh.material.side = currentMeshSideA;
@@ -1598,10 +1800,11 @@ OctreeCSG.intersect = function (octreeA, octreeB) {
             octreeB.mesh.material.side = currentMeshSideB;
         }
     }
-    else {
-        octreeA.getPolygonCallback(octree.addPolygon.bind(octree));
-    }
+    // else {
+    //     octreeA.getPolygonCallback(octree.addPolygon.bind(octree));
+    // }
     octree.buildTree();
+    // octree.invert();
     return octree;
 }
 
@@ -2634,7 +2837,7 @@ class Polygon {
         this.plane = Plane.fromPoints(this.vertices[0].pos, this.vertices[1].pos, this.vertices[2].pos);
         // this.plane = Plane.fromPoints(vertices[0], vertices[1], vertices[2]);
         this.triangle = new Triangle(this.vertices[0].pos, this.vertices[1].pos, this.vertices[2].pos);
-        this.triangle.polygon = this;
+        // this.triangle.polygon = this;
         this.box = new Box3();
         this.box.expandByPoint(this.triangle.a);
         this.box.expandByPoint(this.triangle.b);

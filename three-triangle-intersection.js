@@ -4,8 +4,7 @@ const _v2 = new Vector3();
 const _v3 = new Vector3();
 
 // https://github.com/benardp/contours/blob/master/freestyle/view_map/triangle_triangle_intersection.c
-function triangleIntersectsTriangle(triangleA, triangleB, additions = { coplanar: false, source: new Vector3(), target: new Vector3() }) {
-
+function triangleIntersectsTriangle(triangleA, triangleB, additions = { coplanar: false, source: new Vector3(), target: new Vector3() }) {    
     let p1 = triangleA.a;
     let q1 = triangleA.b;
     let r1 = triangleA.c;

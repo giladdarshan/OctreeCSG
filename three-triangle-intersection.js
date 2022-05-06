@@ -1,4 +1,4 @@
-const { Vector2, Vector3 } = THREE;
+import { Vector2, Vector3 } from 'three';
 const _v1 = new Vector3();
 const _v2 = new Vector3();
 const _v3 = new Vector3();
@@ -528,4 +528,42 @@ function lineIntersects(line1, line2) {
     // return [p0, p1];
     return true;
 }
-export default triangleIntersectsTriangle;
+function getLines(triangle) {
+    return [
+        { start: triangle.a, end: triangle.b },
+        { start: triangle.b, end: triangle.c },
+        { start: triangle.c, end: triangle.a }
+    ];
+}
+
+function checkTrianglesIntersection(triangle1, triangle2, additions = { coplanar: false, source: new Vector3(), target: new Vector3() }) {
+    // let additions = {
+    //     coplanar: false,
+    //     source: new Vector3(),
+    //     target: new Vector3()
+    // };
+    let triangleIntersects = triangleIntersectsTriangle(triangle1, triangle2, additions);
+    // console.log("??? 1", triangleIntersects, additions);
+    additions.triangleCheck = triangleIntersects;
+    if (!triangleIntersects && additions.coplanar) {
+        // console.log("check failed, checking lines");
+        let triangle1Lines = getLines(triangle1);
+        let triangle2Lines = getLines(triangle2);
+        let intersects = false;
+        for (let i = 0; i < 3; i++) {
+            intersects = false;
+            for (let j = 0; j < 3; j++) {
+                intersects = lineIntersects(triangle1Lines[i], triangle2Lines[j]);
+                if (intersects) {
+                    break;
+                }
+            }
+            if (intersects) {
+                break;
+            }
+        }
+        return intersects;
+    }
+    return triangleIntersects;
+}
+export { triangleIntersectsTriangle, checkTrianglesIntersection };

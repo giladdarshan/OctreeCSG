@@ -47,11 +47,11 @@ const BACK = 2;
 const SPANNING = 3;
 let testvar = 0;
 // const trianglesMap = new Map();
-const polygonMaps = new Map();
+//const polygonMaps = new Map();
 
-const octreeMap = new Map();
 class OctreeCSG {
     constructor(box, parent) {
+this.octreeMap = new Map();
         this.isOctree = true;
         // this.triangles = [];
         this.polygons = [];
@@ -185,7 +185,7 @@ class OctreeCSG {
 
     }
     processTree() {
-        octreeMap.set(this.id, this);
+        this.octreeMap.set(this.id, this);
         if (!this.isEmpty()) {
             // console.log("triangles in level", this.level, "Octree ID:", this.id);
             // let currentBox = this.box.clone();

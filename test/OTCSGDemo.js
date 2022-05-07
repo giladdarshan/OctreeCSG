@@ -20,11 +20,15 @@ let rnd=(rng)=>((Math.random()*2)-1)*(rng||1)
 let testMeshes = {
     sphere:new THREE.Mesh(new THREE.SphereGeometry(1.2,8,8),mkMat('grey')),
     box: new THREE.Mesh(new THREE.BoxGeometry(2,2,2),mkMat('grey')),    
-    torusknot: new THREE.Mesh(new THREE.TorusKnotGeometry(1, .25, 30, 4),mkMat('grey')),    
+    torusknot: new THREE.Mesh(new THREE.TorusKnotGeometry(1, .4, 30, 4),mkMat('grey')),    
 }
 let meshNames=Object.keys(testMeshes)
 let objA = 0;
 let objB = 1;
+
+
+let animating = true
+let stepping = false
 
 let meshA = testMeshes[meshNames[objA]].clone();
 scene.add(meshA)
@@ -92,6 +96,8 @@ let updateInfo=()=>{
 [Space] - change method<br>
 [Q] - objA:${meshNames[objA]}<br>
 [E] - objB:${meshNames[objB]}<br>
+[A] - animate<br>
+[E] - step<br>
 current method:${curCSGMethod}<br>time taken: ${timeTaken.toFixed(2)}<br>
 triangles: ${ntris}<br>
 heap low (mb) : ${mb(heapLow)}<br>
@@ -101,6 +107,7 @@ heap (mb)     : ${mb(heap)}<br>
 `
 }
 
+let step = 0;
 window.addEventListener("keydown", (e)=>{
 if(e.code=='KeyW'){
     scene.traverse(e=>e.isMesh&&((e.material.length&&(e.material.forEach(m=>m.wireframe=!m.wireframe)))||(e.material.wireframe = !e.material.wireframe)))
@@ -113,7 +120,15 @@ if(e.code=='KeyW'){
 }else if(e.code=='KeyE'){
     objB=(objB+1)%meshNames.length;
     meshB.geometry=testMeshes[meshNames[objB]].geometry;
+}else if(e.code=='KeyA'){
+    animating = true;
+    stepping = false;
+}else if(e.code=='KeyD'){
+    animating = false;
+    stepping = true;
+    step+=16;
 }
+    
 }, false);
 
 function recompute(){
@@ -157,9 +172,13 @@ function recompute(){
     updateInfo();
 }
 document.addEventListener('afterRender',()=>{
-    let time = performance.now()
-    meshA.position.x=Math.sin(time*0.001)*2;
-    meshA.position.z=Math.cos(time*0.0011)*0.5;
+    //let time = performance.now()
+    
+    meshA.position.x=Math.sin(step*0.001)*2;
+    meshA.position.z=Math.cos(step*0.0011)*0.5;
+    if(animating){
+        step+=16
+    }
     //meshA.position.t=Math.sin(time*-0.0012)*0.5;
     recompute();
 })

@@ -490,9 +490,9 @@ function pointOnLine(line, point) {
     return CD;
 }
 function lineIntersects(line1, line2) {
-    const r = (new THREE.Vector3()).copy(line1.end).sub(line1.start);
-    const s = (new THREE.Vector3()).copy(line2.end).sub(line2.start);
-    const q = (new THREE.Vector3()).copy(line1.start).sub(line2.start);
+    const r = (new Vector3()).copy(line1.end).sub(line1.start);
+    const s = (new Vector3()).copy(line2.end).sub(line2.start);
+    const q = (new Vector3()).copy(line1.start).sub(line2.start);
     // const w = _v3.copy( line2.start ).sub( line1.start );
 
     let dotqr = q.dot(r);

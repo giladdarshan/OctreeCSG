@@ -2570,8 +2570,10 @@ class Polygon {
     delete() {
         this.vertices.forEach(v => v.delete());
         this.vertices.length = 0;
-        this.plane.delete();
-        this.plane = undefined;
+        if (this.plane) {
+            this.plane.delete();
+            this.plane = undefined;
+        }
         this.triangle = undefined;
         this.shared = undefined;
         this.setInvalid();

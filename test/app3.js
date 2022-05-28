@@ -36,7 +36,7 @@ class App3 {
         var raycaster = new THREE.Raycaster();
         var mouse = new THREE.Vector2();
 
-        let lastSavedPosition = new THREE.Vector3(2,1.5,2)
+        let lastSavedPosition = new THREE.Vector3(0,1.5,2)
 
         ocontrols = this.orbitControls = new OrbitControls(camera,renderer.domElement);
         ocontrols.enabled = true;
@@ -48,6 +48,7 @@ class App3 {
             camera.position.copy(lastSavedPosition);
             ocontrols.target.set(0, 0, 0)
         }
+        // camera.lookAt(0, 0, 0);
         let frontMaterial = Environment.mkMat('yellow')
         frontMaterial.transparent = true;
         frontMaterial.opacity = .25;

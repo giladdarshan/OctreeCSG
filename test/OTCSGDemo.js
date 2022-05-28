@@ -4,6 +4,13 @@ import {OrbitControls} from 'threeModules/controls/OrbitControls.js';
 //import {TorusKnotGeometry} from 'threeModules/geometries/TorusKnotGeometry.js';
 import CSG from "./three-csg.js"
 import app from "./app3.js"
+import OctreeCSG from "OctreeCSG/OctreeCSG.js"
+import { computeBoundsTree, disposeBoundsTree, acceleratedRaycast } from './three-mesh-bvh.module.js';
+
+const computeBoundsTree_original = THREE.BufferGeometry.prototype.computeBoundsTree;
+const disposeBoundsTree_original = THREE.BufferGeometry.prototype.disposeBoundsTree;
+const raycast_original = THREE.Mesh.prototype.raycast;
+window.OctreeCSG = OctreeCSG;
 let {renderer,scene,camera} = app;
 
 //UI(app);
@@ -29,6 +36,7 @@ let objB = 1;
 
 let animating = true
 let stepping = false
+let logPositionsFlag = false;
 
 let meshA = testMeshes[meshNames[objA]].clone();
 scene.add(meshA)
@@ -36,7 +44,7 @@ scene.add(meshA)
 let meshB = testMeshes[meshNames[objB]].clone();
 scene.add(meshB)
 
-import OctreeCSG from "../OctreeCSG.js"
+
 function doCSGbrute(a,b,op,mat){
     let bspA = CSG.fromMesh( a );
     let bspB = CSG.fromMesh( b );
@@ -44,15 +52,31 @@ function doCSGbrute(a,b,op,mat){
     let result = CSG.toMesh( bspC, a.matrix );
     result.material = mat;
     result.castShadow  = result.receiveShadow = true;
+    result.csgOp = op;
     return result;
 }
-function doCSGocttree(a,b,op,mat){
+function doCSGoctree(a,b,op,mat){
     let bspA = OctreeCSG.fromMesh( a );
     let bspB = OctreeCSG.fromMesh( b );
     let bspC = OctreeCSG[op]( bspA,bspB );
     let result = OctreeCSG.toMesh( bspC , a.material);//, a.matrix );
     result.material = mat;
     result.castShadow  = result.receiveShadow = true;
+    result.csgOp = op;
+    return result;
+}
+function doCSGoctreeBVH(a,b,op,mat){
+    a.geometry.computeBoundsTree();
+    b.geometry.computeBoundsTree();
+    let bspA = OctreeCSG.fromMesh( a );
+    let bspB = OctreeCSG.fromMesh( b );
+    let bspC = OctreeCSG[op]( bspA,bspB );
+    let result = OctreeCSG.toMesh( bspC , a.material);//, a.matrix );
+    result.material = mat;
+    result.castShadow  = result.receiveShadow = true;
+    a.geometry.disposeBoundsTree();
+    b.geometry.disposeBoundsTree();
+    result.csgOp = op;
     return result;
 }
 
@@ -65,11 +89,13 @@ let mats=[subMaterial,intersectMaterial,unionMaterial]
 
 let csgMethods={
     'brute':doCSGbrute,
-    'octtree':doCSGocttree
+    'octree':doCSGoctree,
+    'octree + mesh-bvh':doCSGoctreeBVH
 }
+let csgMethodsNames = Object.keys(csgMethods);
 
-let curCSGMethod = 'octtree'
-let csgMethod = csgMethods[curCSGMethod]
+let curCSGMethod = 1;
+let csgMethod = csgMethods[csgMethodsNames[curCSGMethod]]
 
 let info = document.createElement('span')
 
@@ -97,8 +123,9 @@ let updateInfo=()=>{
 [Q] - objA:${meshNames[objA]}<br>
 [E] - objB:${meshNames[objB]}<br>
 [A] - animate<br>
-[E] - step<br>
-current method:${curCSGMethod}<br>time taken: ${timeTaken.toFixed(2)}<br>
+[D] - step<br>
+current method:${csgMethodsNames[curCSGMethod]}<br>
+time taken: ${timeTaken.toFixed(2)}<br>
 triangles: ${ntris}<br>
 heap low (mb) : ${mb(heapLow)}<br>
 heap high (mb): ${mb(heapHigh)}<br>
@@ -113,7 +140,32 @@ if(e.code=='KeyW'){
     scene.traverse(e=>e.isMesh&&((e.material.length&&(e.material.forEach(m=>m.wireframe=!m.wireframe)))||(e.material.wireframe = !e.material.wireframe)))
     mats.forEach(m=>m.wireframe=!m.wireframe)
 }else if(e.code=='Space'){
-    csgMethod = csgMethods[curCSGMethod = (curCSGMethod == 'brute')?'octtree':'brute'];
+    curCSGMethod = (curCSGMethod + 1) % csgMethodsNames.length;
+    csgMethod = csgMethods[csgMethodsNames[curCSGMethod]];
+    if (curCSGMethod == 2) { // octree + mesh-bvh
+        THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
+        THREE.BufferGeometry.prototype.disposeBoundsTree = disposeBoundsTree;
+        THREE.Mesh.prototype.raycast = acceleratedRaycast;
+        meshA.geometry.computeBoundsTree = computeBoundsTree;
+        meshA.geometry.disposeBoundsTree = disposeBoundsTree;
+        meshA.raycast = acceleratedRaycast;
+        meshB.geometry.computeBoundsTree = computeBoundsTree;
+        meshB.geometry.disposeBoundsTree = disposeBoundsTree;
+        meshB.raycast = acceleratedRaycast;
+    }
+    else {
+        THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree_original;
+        THREE.BufferGeometry.prototype.disposeBoundsTree = disposeBoundsTree_original;
+        THREE.Mesh.prototype.raycast = raycast_original;
+        meshA.geometry.computeBoundsTree = computeBoundsTree_original;
+        meshA.geometry.disposeBoundsTree = disposeBoundsTree_original;
+        meshA.raycast = raycast_original;
+        meshB.geometry.computeBoundsTree = computeBoundsTree_original;
+        meshB.geometry.disposeBoundsTree = disposeBoundsTree_original;
+        meshB.raycast = raycast_original;
+    }
+
+
 }else if(e.code=='KeyQ'){
     objA=(objA+1)%meshNames.length;
     meshA.geometry=testMeshes[meshNames[objA]].geometry;
@@ -127,6 +179,7 @@ if(e.code=='KeyW'){
     animating = false;
     stepping = true;
     step+=16;
+    logPositionsFlag = true;
 }
     
 }, false);
@@ -159,6 +212,7 @@ function recompute(){
 
         r.position.z += -5 + ((i%3)*5)
         r.position.x += -5 + (((i/3)|0)*10)
+        stepping && console.log(`results[${i}] position:`, r.position, r);
     }    
     
     timeTaken = performance.now()-timeTaken;
@@ -178,7 +232,18 @@ document.addEventListener('afterRender',()=>{
     meshA.position.z=Math.cos(step*0.0011)*0.5;
     if(animating){
         step+=16
+        recompute();
+    }
+    else if (stepping) {
+        recompute();
+        console.log("meshA position:", meshA.position);
+        console.log("meshB position:", meshB.position);
+        stepping = false;
     }
     //meshA.position.t=Math.sin(time*-0.0012)*0.5;
-    recompute();
+    // if (logPositionsFlag) {
+    //     console.log("meshA position:", meshA.position);
+    //     console.log("meshB position:", meshB.position);
+    //     logPositionsFlag = false;
+    // }
 })

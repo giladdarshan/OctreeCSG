@@ -4,13 +4,13 @@ import {OrbitControls} from 'threeModules/controls/OrbitControls.js';
 //import {TorusKnotGeometry} from 'threeModules/geometries/TorusKnotGeometry.js';
 import CSG from "./three-csg.js"
 import app from "./app3.js"
-import OctreeCSG from "../OctreeCSG.js"
+import OctreeCSG from "OctreeCSG/OctreeCSG.js"
 import { computeBoundsTree, disposeBoundsTree, acceleratedRaycast } from './three-mesh-bvh.module.js';
 
 const computeBoundsTree_original = THREE.BufferGeometry.prototype.computeBoundsTree;
 const disposeBoundsTree_original = THREE.BufferGeometry.prototype.disposeBoundsTree;
 const raycast_original = THREE.Mesh.prototype.raycast;
-
+window.OctreeCSG = OctreeCSG;
 let {renderer,scene,camera} = app;
 
 //UI(app);
@@ -52,6 +52,7 @@ function doCSGbrute(a,b,op,mat){
     let result = CSG.toMesh( bspC, a.matrix );
     result.material = mat;
     result.castShadow  = result.receiveShadow = true;
+    result.csgOp = op;
     return result;
 }
 function doCSGoctree(a,b,op,mat){
@@ -61,6 +62,7 @@ function doCSGoctree(a,b,op,mat){
     let result = OctreeCSG.toMesh( bspC , a.material);//, a.matrix );
     result.material = mat;
     result.castShadow  = result.receiveShadow = true;
+    result.csgOp = op;
     return result;
 }
 function doCSGoctreeBVH(a,b,op,mat){
@@ -74,6 +76,7 @@ function doCSGoctreeBVH(a,b,op,mat){
     result.castShadow  = result.receiveShadow = true;
     a.geometry.disposeBoundsTree();
     b.geometry.disposeBoundsTree();
+    result.csgOp = op;
     return result;
 }
 
@@ -209,6 +212,7 @@ function recompute(){
 
         r.position.z += -5 + ((i%3)*5)
         r.position.x += -5 + (((i/3)|0)*10)
+        stepping && console.log(`results[${i}] position:`, r.position, r);
     }    
     
     timeTaken = performance.now()-timeTaken;
@@ -228,12 +232,18 @@ document.addEventListener('afterRender',()=>{
     meshA.position.z=Math.cos(step*0.0011)*0.5;
     if(animating){
         step+=16
+        recompute();
     }
-    else if (logPositionsFlag) {
+    else if (stepping) {
+        recompute();
         console.log("meshA position:", meshA.position);
         console.log("meshB position:", meshB.position);
-        logPositionsFlag = false;
+        stepping = false;
     }
     //meshA.position.t=Math.sin(time*-0.0012)*0.5;
-    recompute();
+    // if (logPositionsFlag) {
+    //     console.log("meshA position:", meshA.position);
+    //     console.log("meshB position:", meshB.position);
+    //     logPositionsFlag = false;
+    // }
 })

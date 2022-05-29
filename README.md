@@ -57,7 +57,7 @@ scene.add(resultMesh);
 ```
 <br/>
 
-### CSG Hierarchy of Operations:
+### CSG Hierarchy of Operations (Syntax may change):
 ```js
 let baseMaterial = new THREE.MeshBasicMaterial({ color: 0x0000ff });
 let cubeGeometry = new THREE.BoxGeometry(10, 10, 10);

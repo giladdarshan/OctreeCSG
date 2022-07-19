@@ -87,6 +87,10 @@ class OctreeCSG {
 
         return this;
     }
+    
+    newOctree(box, parent) {
+        return new this.constructor(box, parent);
+    }
 
     split(level) {
         if (!this.box) return;
@@ -102,7 +106,7 @@ class OctreeCSG {
                     box.min.copy(this.box.min).add(v.multiply(halfsize));
                     box.max.copy(box.min).add(halfsize);
                     box.expandByScalar(EPSILON);
-                    subTrees.push(new OctreeCSG(box, this));
+                    subTrees.push(this.newOctree(box, this));
                 }
             }
         }

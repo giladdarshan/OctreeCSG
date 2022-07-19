@@ -1,64 +1,36 @@
-// import * as THREE from 'three';
-// const { Vector2, Vector3, Box3, BackSide, DoubleSide, FrontSide, Matrix3, Matrix4, Ray, Triangle, BufferGeometry, BufferAttribute, Mesh, Raycaster } = THREE;
-import { Vector2, Vector3, Box3, BackSide, DoubleSide, FrontSide, Matrix3, Matrix4, Ray, Triangle, BufferGeometry, BufferAttribute, Mesh, Raycaster } from 'three';
-import { triangleIntersectsTriangle, checkTrianglesIntersection } from './three-triangle-intersection.js';
+import { Vector2, Vector3, Box3, DoubleSide, Matrix3, Matrix4, Ray, Triangle, BufferGeometry, BufferAttribute, Mesh, Raycaster } from 'three';
+import { checkTrianglesIntersection } from './three-triangle-intersection.js';
+
 const _v1 = new Vector3();
 const _v2 = new Vector3();
 const _v3 = new Vector3();
-const tmpInverseMatrix = new Matrix4();
-// import * as BVH from '/js/three-mesh-bvh.module.js';
-// console.log("BVH TEST:", BVH);
+const _box3$1 = new Box3();
 
 const tv0 = new Vector3();
 const tv1 = new Vector3();
 const _raycaster1 = new Raycaster();
 const _ray = new Ray();
-const _ray2 = new Ray();
 const _rayDirection = new Vector3(0, 0, 1);
 
-// const _raycastDirections = [
-//     new Vector3(0, 0, 1),
-//     new Vector3(0, 1, 0),
-//     new Vector3(1, 0, 0)
-// ];
-// const _raycastDirectionsCount = _raycastDirections.length;
 
-let _octreeID = 0;
-let _triangleID = 0;
-let _polygonID = 0;
 const EPSILON = 1e-5;
 const COPLANAR = 0;
 const FRONT = 1;
 const BACK = 2;
 const SPANNING = 3;
-let testvar = 0;
-// const trianglesMap = new Map();
-//const polygonMaps = new Map();
+let _polygonID = 0;
 
 class OctreeCSG {
     constructor(box, parent) {
-        // this.octreeMap = new Map();
-        // this.isOctree = true;
-        // this.triangles = [];
         this.polygons = [];
         this.replacedPolygons = [];
-        // this.polygonMap;
         this.mesh;
         this.originalMatrixWorld;
-        // this.bspNode;
         this.box = box;
         this.subTrees = [];
         this.parent = parent;
         this.level = 0;
-        Object.defineProperties(this, {
-            id: {
-                value: _octreeID++
-            },
-            isOctree: {
-                value: true
-            }
-        });
-
+        // this.isOctree = true;
     }
     clone() {
         return new this.constructor().copy(this);
@@ -82,12 +54,6 @@ class OctreeCSG {
         }
 
         return this;
-    }
-    testget() {
-        return testvar;
-    }
-    testset() {
-        testvar++;
     }
     isEmpty() {
         return this.polygons.length === 0;
@@ -120,11 +86,9 @@ class OctreeCSG {
         this.box.min.z -= 0.01;
 
         return this;
-
     }
 
     split(level) {
-
         if (!this.box) return;
 
         const subTrees = [];
@@ -142,97 +106,59 @@ class OctreeCSG {
                 }
             }
         }
-        // console.log(`Octree (${this.id}) suggested subTrees:`, subTrees);
-        // let triangle;
+
         let polygon;
-        // while (triangle = this.triangles.pop()) {
         while (polygon = this.polygons.pop()) {
-            let triangle = polygon.triangle;
             let found = false;
             for (let i = 0; i < subTrees.length; i++) {
-                // let triangleMidPoint = Vector3();
-
-                if (subTrees[i].box.containsPoint(triangle.midPoint)) {
-                    // if (subTrees[i].box.containsPoint(triangle.getMidpoint(_v1))) {
-                    // if (subTrees[i].box.intersectsTriangle(triangle)) {
-
-                    // subTrees[i].triangles.push(triangle);
+                if (subTrees[i].box.containsPoint(polygon.getMidpoint())) {
                     subTrees[i].polygons.push(polygon);
                     found = true;
                 }
 
             }
             if (!found) {
-                console.error("ERROR: unable to find subtree for:", triangle, triangle.getMidpoint(_v1), this, subTrees);
+                console.error("ERROR: unable to find subtree for:", polygon.triangle);
                 throw new Error(`Unable to find subtree for triangle at level ${level}`);
             }
 
         }
-        // if (level >= OctreeCSG.maxLevel) {
-        //     console.log(`Warning: Octree reached max level (${level})`);
-        // }
+
         for (let i = 0; i < subTrees.length; i++) {
             subTrees[i].level = level + 1;
             const len = subTrees[i].polygons.length;
 
+            // if (len !== 0) {
             if (len > OctreeCSG.polygonsPerTree && level < OctreeCSG.maxLevel) {
-
                 subTrees[i].split(level + 1);
 
             }
-
-            // if (len !== 0) {
-
             this.subTrees.push(subTrees[i]);
-
             // }
-
         }
 
         return this;
-
     }
 
     buildTree() {
-        // this.setPolygonMap(new Map());
-        // octree.setPolygonMap();
         this.calcBox();
         this.split(0);
         this.processTree();
-        // console.log("trianglesMap", trianglesMap);
+
         return this;
 
     }
     processTree() {
-        // this.octreeMap.set(this.id, this);
         if (!this.isEmpty()) {
-            // console.log("triangles in level", this.level, "Octree ID:", this.id);
-            // let currentBox = this.box.clone();
-            // for (let i = 0; i < this.triangles.length; i++) {
+            _box3$1.copy(this.box);
             for (let i = 0; i < this.polygons.length; i++) {
-                // OctreeCSG.addPolygonToMap(this.polygonMap, this.polygons[i], this);
-                // OctreeCSG.addTriangleToMap(trianglesMap, this.triangles[i], this);
                 this.box.expandByPoint(this.polygons[i].triangle.a);
                 this.box.expandByPoint(this.polygons[i].triangle.b);
                 this.box.expandByPoint(this.polygons[i].triangle.c);
-                // currentBox.expandByPoint(this.triangles[i].a);
-                // currentBox.expandByPoint(this.triangles[i].b);
-                // currentBox.expandByPoint(this.triangles[i].c);
-
-                // if (this.polygons[i].source === "a") {
-                //     this.aPolygons.push(this.polygons[i]);
-                // }
-                // else if (this.polygons[i].source === "b") {
-                //     this.bPolygons.push(this.polygons[i]);
-                // }
             }
             this.expandParentBox();
-            // if (!this.box.equals(currentBox)) {
-            //     console.log("bound box changed in tree id", this.id, this.box, currentBox);
-            // }
         }
         for (let i = 0; i < this.subTrees.length; i++) {
-            // this.subTrees[i].setPolygonMap(this.polygonMap);
             this.subTrees[i].processTree();
         }
     }
@@ -243,384 +169,97 @@ class OctreeCSG {
             this.parent.expandParentBox();
         }
     }
-    // setPolygonMap(map) {
-    //     this.polygonMap = map;
-    // }
 
-    // Not used
-    // getRayTriangles(ray, triangles) {
-    //     // console.log("triangles:", triangles);
-    //     for (let i = 0; i < this.subTrees.length; i++) {
-
-    //         const subTree = this.subTrees[i];
-    //         if (!ray.intersectsBox(subTree.box)) {
-    //             // console.log(i, "ray not intersecting", subTree.box);
-    //             continue;
-    //         }
-    //         // console.log(i, "poly count:", subTree.polygons.length);
-    //         // if (subTree.triangles.length > 0) {
-    //         if (subTree.polygons.length > 0) {
-    //             // for (let j = 0; j < subTree.triangles.length; j++) {
-    //             for (let j = 0; j < subTree.polygons.length; j++) {
-
-    //                 // if (triangles.indexOf(subTree.triangles[j]) === - 1) triangles.push(subTree.triangles[j]);
-    //                 if (triangles.indexOf(subTree.polygons[j].triangle) === - 1) {
-    //                     // console.log("adding triangle", subTree.polygons[j].triangle);
-    //                     triangles.push(subTree.polygons[j].triangle);
-    //                 }
-    //                 // else {
-    //                 //     console.log("skipping triangle", subTree.polygons[j].triangle, "all triangles:", triangles);
-    //                 // }
-
-    //             }
-
-    //         } else {
-
-    //             subTree.getRayTriangles(ray, triangles);
-
-    //         }
-
-    //     }
-
-    //     return triangles;
-
-    // }
-
-
-    // Not used
-    // increaseTriangleSize(triangle, targetTriangle = new Triangle()) {
-    //     let EPSILON = 0;
-    //     targetTriangle.copy(triangle);
-    //     targetTriangle.a.x += triangle.a.x < 0 ? -EPSILON : EPSILON;
-    //     targetTriangle.a.y += triangle.a.y < 0 ? -EPSILON : EPSILON;
-    //     targetTriangle.a.z += triangle.a.z < 0 ? -EPSILON : EPSILON;
-    //     targetTriangle.b.x += triangle.b.x < 0 ? -EPSILON : EPSILON;
-    //     targetTriangle.b.y += triangle.b.y < 0 ? -EPSILON : EPSILON;
-    //     targetTriangle.b.z += triangle.b.z < 0 ? -EPSILON : EPSILON;
-    //     targetTriangle.c.x += triangle.c.x < 0 ? -EPSILON : EPSILON;
-    //     targetTriangle.c.y += triangle.c.y < 0 ? -EPSILON : EPSILON;
-    //     targetTriangle.c.z += triangle.c.z < 0 ? -EPSILON : EPSILON;
-    //     return targetTriangle;
-    // }
-    // getPolygonsOnlyIntersectingPolygon(targetPolygon, polygons = []) {
-    //     if (targetPolygon.triangle === undefined) {
-    //         console.log("UNDEFINED", targetPolygon);
-    //         return polygons;
-    //     }
-    //     if (this.box.intersectsTriangle(targetPolygon.triangle)) {
-    //         if (this.polygons.length > 0) {
-    //             polygons.push(...this.polygons.filter(p => p.valid));
-    //         }
-    //         for (let i = 0; i < this.subTrees.length; i++) {
-    //             this.subTrees[i].getPolygonsOnlyIntersectingPolygon(targetPolygon, polygons);
-    //         }
-    //     }
-
-    //     return polygons;
-    // }
-
-
-    getPolygonsIntersectingPolygon(targetPolygon, options = {}, polygons = []) {
-        let found = false;
-        options = {
-            debug: false,
-            useOriginal: false,
-            ...options
-        };
-        // let targetTriangle = this.increaseTriangleSize(targetPolygon.triangle);
-        // let bvhTriangle1 = new BVH.SeparatingAxisTriangle(targetTriangle.a, targetTriangle.b, targetTriangle.c);
-        let targetTriangle = targetPolygon.triangle;
-        if (this.box.intersectsTriangle(targetTriangle)) {
+    getPolygonsIntersectingPolygon(targetPolygon, polygons = []) {
+        if (this.box.intersectsTriangle(targetPolygon.triangle)) {
             if (this.polygons.length > 0) {
-                if (targetTriangle === undefined) {
-                    console.log("UNDEFINED", targetPolygon);
-                }
                 let allPolygons = this.polygons.slice();
-                if (this.replacedPolygons.length > 0 && options.useOriginal === true) {
-                    // console.log("this.replacedPolygons", this.replacedPolygons);
-                    // allPolygons.push(...this.replacedPolygons);
+                if (this.replacedPolygons.length > 0) {
                     for (let i = 0; i < this.replacedPolygons.length; i++) {
                         allPolygons.push(this.replacedPolygons[i]);
-                        // let polygon = this.replacedPolygons[i];
-                        // if (polygon.valid || polygon.intersects) {
-                        //     console.log('aaa', polygon);
-                        // }
                     }
-                    // polygons.push(...this.replacedPolygons);
                 }
                 for (let i = 0; i < allPolygons.length; i++) {
                     let polygon = allPolygons[i];
-                    // }
-                    // this.polygons.forEach(polygon => {
-                    // if (options.useOriginal) {
-                    //     if (polygon.valid && !polygon.intersects) {
-                    //         continue;
-                    //     }
-                    //     else if (!polygon.valid && polygon.originalValid)
-                    //     if (polygon.originalValid && !polygon.intersects) {
-                    //         // console.log(polygon.originalValid);
-                    //         continue;
-                    //     }
-                    // }
-                    // if (polygon.intersects && (polygon.valid || polygon.originalValid)) {
-                    if (options.useOriginal && !polygon.originalValid) {
-                        // console.log("a");
-                        continue;
-                    }
-                    if (!polygon.valid || !polygon.intersects) {
+
+                    if (!polygon.originalValid || !polygon.valid || !polygon.intersects) {
                         continue;
                     }
 
-                    if (options.debug) {
-                        // if (((polygon.triangle.a.z == 5) || (polygon.triangle.b.z == 5) || (polygon.triangle.c.z == 5)) && ((polygon.triangle.a.x >= 1) || (polygon.triangle.b.x >= 1) || (polygon.triangle.c.x >= 1))) {
-                        let additionsObj = {
-                            coplanar: false,
-                            source: new Vector3(),
-                            target: new Vector3()
-                        };
-                        console.log("Testing intersection with polygon:", targetPolygon.id, targetPolygon, polygon, polygon.triangle);
-                        if ((targetTriangle === undefined) || (polygon.triangle === undefined)) {
-                            console.log("UNDEFINED!!!!!", targetPolygon, polygon);
-                        }
-                        // if (triangleIntersectsTriangle(targetTriangle, polygon.triangle, additionsObj)) {
-
-
-                        // let bvhTriangle2 = new BVH.SeparatingAxisTriangle(polygon.triangle.a, polygon.triangle.b, polygon.triangle.c);
-                        // console.log("BVH Intersect", bvhTriangle1.intersectsTriangle(bvhTriangle2));
-                        // if (bvhTriangle1.intersectsTriangle(bvhTriangle2)) {
-                        // console.log("found intersecting polygon", polygon);
-                        if (checkTrianglesIntersection(targetTriangle, polygon.triangle, additionsObj)) {
-                            console.log("intersects", additionsObj.triangleCheck, additionsObj);
-                            polygons.push(polygon);
-                            found = true;
-                        }
-                        // else {
-                        //     console.log("nope", additionsObj.triangleCheck);
-                        // }
-
+                    if (checkTrianglesIntersection(targetPolygon.triangle, polygon.triangle)) {
+                        polygons.push(polygon);
                     }
-                    else {
-                        if ((targetTriangle === undefined) || (polygon.triangle === undefined)) {
-                            console.log("UNDEFINED!!!!!", targetPolygon, polygon);
-                        }
-                        // if (triangleIntersectsTriangle(targetTriangle, polygon.triangle)) {
-                        if (checkTrianglesIntersection(targetTriangle, polygon.triangle)) {
-                            polygons.push(polygon);
-                        }
-
-                    }
-                    // }
                 }
             }
-            // if (this.replacedPolygons.length > 0 && options.useOriginal === true) {
-            //     console.log("this.replacedPolygons", this.replacedPolygons);
-            //     // for (let i = 0; i < this.replacedPolygons.length; i++) {
-            //     //     let polygon = this.replacedPolygons[i];
-            //     //     if (!polygon.valid || !polygon.intersects) {
-            //     //         console.log('aaa', polygon);
-            //     //     }
-            //     // }
-            //     // polygons.push(...this.replacedPolygons);
-            // }
         }
-        options.debug && console.warn("[getPolygonsIntersectingPolygon] FOUND?", found);
 
         for (let i = 0; i < this.subTrees.length; i++) {
-            this.subTrees[i].getPolygonsIntersectingPolygon(targetPolygon, options, polygons);
+            this.subTrees[i].getPolygonsIntersectingPolygon(targetPolygon, polygons);
         }
 
         return polygons;
     }
 
 
-    // Testing
-    populatePolygonWithOctree() {
-        if (this.polygons.length > 0) {
-            this.polygons.forEach(p => p.octree = this);
-        }
-        for (let i = 0; i < this.subTrees.length; i++) {
-            this.subTrees[i].populatePolygonWithOctree();
-        }
-    }
-    getRayPolygons(ray, options = { useOriginal: false }, polygons = []) {
-        // console.log("[getRayPolygons] checking octree", this, this.polygons.length);
+    getRayPolygons(ray, polygons = []) {
         if (this.polygons.length > 0) {
             for (let i = 0; i < this.polygons.length; i++) {
-                // if ((options.useOriginal && this.polygons[i].originalValid) || (!options.useOriginal && this.polygons[i].valid)) {
-                if (options.useOriginal) {
-                    if (this.polygons[i].valid && this.polygons[i].originalValid) {
-                        if (polygons.indexOf(this.polygons[i]) === -1) {
-                            polygons.push(this.polygons[i]);
-                        }
-                    }
-                }
-                else if (this.polygons[i].valid) {
+                if (this.polygons[i].valid && this.polygons[i].originalValid) {
                     if (polygons.indexOf(this.polygons[i]) === -1) {
                         polygons.push(this.polygons[i]);
                     }
                 }
-                // }
             }
         }
-        if (options.useOriginal === true) {
-            if (this.replacedPolygons.length > 0) {
-                polygons.push(...this.replacedPolygons);
-            }
+        if (this.replacedPolygons.length > 0) {
+            polygons.push(...this.replacedPolygons);
         }
         for (let i = 0; i < this.subTrees.length; i++) {
-            // if (ray.triangle ? this.subTrees[i].box.intersectsTriangle(ray.triangle) : ray.intersectsBox(this.subTrees[i].box)) {
             if (ray.intersectsBox(this.subTrees[i].box)) {
-                this.subTrees[i].getRayPolygons(ray, options, polygons);
+                this.subTrees[i].getRayPolygons(ray, polygons);
             }
         }
 
         return polygons;
     }
 
-    // Testing
-    rayIntersect(ray, matrixWorld, options = { useOriginal: false }, intersects = []) {
-        // options = {
-        //     useOriginal: false,
-        //     ...options
-        // };
-
+    rayIntersect(ray, matrixWorld, intersects = []) {
         if (ray.direction.length() === 0) return [];
-        if (matrixWorld) {
-            tmpInverseMatrix.copy(matrixWorld).invert();
-            _ray2.copy(ray).applyMatrix4(tmpInverseMatrix);
-        }
 
-        // three-mesh-bvh
-        // const distance = ray.origin.distanceTo( point );
-        // hit.point.applyMatrix4( object.matrixWorld );
-        // hit.distance = hit.point.distanceTo( raycaster.ray.origin );
-        // hit.object = object;
-        // if ( hit.distance < raycaster.near || hit.distance > raycaster.far ) {
-        //     return null;
-        // } else {
-        //     return hit;
+        let distance = 1e100;
+        let polygons = this.getRayPolygons(ray);
 
-
-        // three.js
-        // _intersectionPointWorld.copy(point);
-        // _intersectionPointWorld.applyMatrix4(object.matrixWorld);
-        // const distance = raycaster.ray.origin.distanceTo(_intersectionPointWorld);
-        // if (distance < raycaster.near || distance > raycaster.far) return null;
-        // return {
-        // 	distance: distance,
-        // 	point: _intersectionPointWorld.clone(),
-        // 	object: object
-        // };
-
-
-
-
-        // const polygons = [];
-        let polygon, position, distance = 1e100;
-
-        // this.getRayTriangles(ray, triangles);
-
-        // let polygons = this.getRayPolygons(ray);
-        // let polygons = this.getPolygons();
-        let polygons = OctreeCSG.getRayPolys ? this.getRayPolygons(ray, options) : this.getPolygons(options);
-
-        OctreeCSG.debugPoly && console.log("[rayIntersect] polygons", polygons, "OctreeCSG.testSide", OctreeCSG.testSide);
         for (let i = 0; i < polygons.length; i++) {
             let result;
-            switch (OctreeCSG.rayIntersectTriangleType) {
-                case "MollerTrumbore":
-                    result = rayIntersectsTriangle(ray, polygons[i].triangle, _v1);
-                    if (result) {
-                        const newdistance = result.clone().sub(ray.origin).length();
-                        if (distance > newdistance) {
-                            distance = newdistance;
-                        }
-                        if (distance < 1e100) {
-                            // if (distance !== newdistance) {
-                            //     console.log("DISTANCE CHECK:", distance, newdistance);
-                            // }
-                            // intersects.push({ distance: newdistance, polygon: polygons[i], position: result.clone().add(ray.origin) });
-                            intersects.push({ distance: distance, polygon: polygons[i], position: result.clone().add(ray.origin) });
-                        }
-                        else {
-                            console.log("BIG DISTANCE:", { distance: distance, polygon: polygons[i], position: result.clone().add(ray.origin) });
-                        }
+            if (OctreeCSG.rayIntersectTriangleType === "regular") {
+                result = ray.intersectTriangle(polygons[i].triangle.a, polygons[i].triangle.b, polygons[i].triangle.c, false, _v1); //double
+                if (result) {
+                    _v1.applyMatrix4(matrixWorld);
+                    distance = _v1.distanceTo(ray.origin);
+                    if (distance < 0 || distance > Infinity) {
+                        console.warn("[rayIntersect] Failed ray distance check", ray);
                     }
-                    break;
-                case "regular":
-                default:
-                    // ray.direction = polygons[i].vertices[0].normal;
-                    // let result = ray.intersectTriangle(polygons[i].triangle.c, polygons[i].triangle.b, polygons[i].triangle.a, true, _v1); // back
-                    result = ray.intersectTriangle(polygons[i].triangle.a, polygons[i].triangle.b, polygons[i].triangle.c, false, _v1); //double
-
-
-                    // let result = _ray2.intersectTriangle(polygons[i].triangle.a, polygons[i].triangle.b, polygons[i].triangle.c, false, _v1); //double
-                    if (result) {
-                        _v1.applyMatrix4(matrixWorld);
-                        // distance = ray.origin.distanceTo(_v1);
-                        distance = _v1.distanceTo(ray.origin);
-                        // if (distance > 0 && distance < Infinity) {
-                        if (distance < 0 || distance > Infinity) {
-                            console.warn("[rayIntersect] Failed ray distance check", ray);
-                        }
-                        else {
-                            intersects.push({ distance: distance, polygon: polygons[i], position: _v1.clone() });
-                        }
-
-
-                        // const newdistance = result.sub(ray.origin).length();
-                        // if (distance > newdistance) {
-                        //     position = result.clone().add(ray.origin);
-                        //     distance = newdistance;
-                        //     polygon = polygons[i];
-                        // }
-                        // if (distance < 1e100) {
-                        //     intersects.push({ distance: newdistance, polygon: polygons[i], position: result.clone().add(ray.origin) });
-                        // }
-                        // else {
-                        //     console.log("BIG DISTANCE:", { distance: distance, polygon: polygon, position: position });
-                        // }
-
+                    else {
+                        intersects.push({ distance: distance, polygon: polygons[i], position: _v1.clone() });
                     }
-                    break;
+                }
             }
-
-            OctreeCSG.debugPoly && console.log("[rayIntersect]", i, result);
-            // Not required since always using DoubleSide check (?)
-            /*
-            if (OctreeCSG.testSide == BackSide) { // backside
-                // console.log("ray testing back");
-                result = ray.intersectTriangle(polygons[i].triangle.c, polygons[i].triangle.b, polygons[i].triangle.a, true, _v1);
+            else { // MollerTrumbore
+                result = rayIntersectsTriangle(ray, polygons[i].triangle, _v1);
+                if (result) {
+                    const newdistance = result.clone().sub(ray.origin).length();
+                    if (distance > newdistance) {
+                        distance = newdistance;
+                    }
+                    if (distance < 1e100) {
+                        intersects.push({ distance: distance, polygon: polygons[i], position: result.clone().add(ray.origin) });
+                    }
+                }
             }
-            else if (OctreeCSG.testSide == DoubleSide) { // doubleside
-                // console.log("ray testing double");
-                // console.log("OctreeCSG.testSide !== DoubleSide", OctreeCSG.testSide !== DoubleSide, OctreeCSG.testSide);
-                result = ray.intersectTriangle(polygons[i].triangle.a, polygons[i].triangle.b, polygons[i].triangle.c, false, _v1);
-            }
-            else if (OctreeCSG.testSide == FrontSide) { // frontside
-                // console.log("ray testing front");
-                // console.log("OctreeCSG.testSide !== DoubleSide", OctreeCSG.testSide !== DoubleSide, OctreeCSG.testSide);
-                result = ray.intersectTriangle(polygons[i].triangle.a, polygons[i].triangle.b, polygons[i].triangle.c, true, _v1);
-            }
-            // result = ray.intersectTriangle(triangles[i].a, triangles[i].b, triangles[i].c, false, _v1);
-            */
-
-            // const result = ray.intersectTriangle(triangles[i].a, triangles[i].b, triangles[i].c, true, _v1);
-
-            // else {
-            //     console.log(i, "nope", result);
-            // }
-
         }
-        // intersectObject(object, recursive = true, intersects = []) {
-        // 	intersectObject(object, this, intersects, recursive);
-        // 	intersects.sort(ascSort);
-        // 	return intersects;
-        // }
+
         intersects.length && intersects.sort(raycastIntersectAscSort);
         return intersects;
-        // return distance < 1e100 ? { distance: distance, triangle: triangle, position: position } : false;
-
     }
 
     getIntersectingPolygons(polygons = []) {
@@ -636,17 +275,10 @@ class OctreeCSG {
         }
         return polygons;
     }
-    getPolygons(options = { useOriginal: false }, polygons = []) {
+    getPolygons(polygons = []) {
         if (this.polygons.length) {
             for (let i = 0; i < this.polygons.length; i++) {
-                if (options.useOriginal) {
-                    if (this.polygons[i].valid && this.polygons[i].originalValid) {
-                        if (polygons.indexOf(this.polygons[i]) === -1) {
-                            polygons.push(this.polygons[i]);
-                        }
-                    }
-                }
-                else if (this.polygons[i].valid) {
+                if (this.polygons[i].valid) {
                     if (polygons.indexOf(this.polygons[i]) === -1) {
                         polygons.push(this.polygons[i]);
                     }
@@ -654,24 +286,11 @@ class OctreeCSG {
 
             }
         }
-        if (options.useOriginal) {
-            if (this.replacedPolygons.length > 0) {
-                polygons.push(...this.replacedPolygons);
-            }
-        }
 
 
         for (let i = 0; i < this.subTrees.length; i++) {
-            this.subTrees[i].getPolygons(options, polygons);
+            this.subTrees[i].getPolygons(polygons);
         }
-        return polygons;
-    }
-    getInvalidPolygons(polygons = []) {
-        polygons.push(...this.polygons.filter(p => !p.valid));
-        for (let i = 0; i < this.subTrees.length; i++) {
-            this.subTrees[i].getInvalidPolygons(polygons);
-        }
-
         return polygons;
     }
     invert() {
@@ -689,7 +308,7 @@ class OctreeCSG {
         return this.mesh;
     }
 
-    replacePolygon(polygon, newPolygons, firstRun = true) {
+    replacePolygon(polygon, newPolygons) {
         if (!Array.isArray(newPolygons)) {
             newPolygons = [newPolygons];
         }
@@ -704,27 +323,18 @@ class OctreeCSG {
                 }
 
 
-                // console.log("replacing polygons in tree id", this.id, "old polygon:", polygon, "new polygons:", newPolygons);
-                // polygon.setInvalid();
-                // if (!polygon.originalValid) {
                 this.polygons.splice(polygonIndex, 1, ...newPolygons);
-                // }
-                // }
-                // polygon.delete();
             }
         }
         for (let i = 0; i < this.subTrees.length; i++) {
-            this.subTrees[i].replacePolygon(polygon, newPolygons, false);
+            this.subTrees[i].replacePolygon(polygon, newPolygons);
         }
-        // if (firstRun) {
-        //     polygon.delete();
-        // }
+
     }
 
 
-    deletePolygonsByStateRules(rulesArr, debug = false, firstRun = true) {
+    deletePolygonsByStateRules(rulesArr, firstRun = true) {
         if (this.polygons.length > 0) {
-            // let polygonArr = this.polygons.slice();
             let polygonArr = this.polygons.filter(polygon => (polygon.valid == true) && (polygon.intersects == true));
             polygonArr.forEach(polygon => {
                 let found = false;
@@ -732,7 +342,6 @@ class OctreeCSG {
                     if (rulesArr[j].array) {
                         let states = rulesArr[j].rule;
                         if ((states.includes(polygon.state)) && (((polygon.previousState !== "undecided") && (states.includes(polygon.previousState))) || (polygon.previousState == "undecided"))) {
-                            debug && console.log("deletePolygonsByStates A");
                             found = true;
                             let statesObj = {};
                             let mainStatesObj = {};
@@ -741,7 +350,6 @@ class OctreeCSG {
                             statesObj[polygon.state] = true;
                             for (let i = 0; i < polygon.previousStates.length; i++) {
                                 if (!states.includes(polygon.previousStates[i])) { // if previous state not one of provided states (not included in states array), break
-                                    debug && console.log("deletePolygonsByStates B", polygon.previousStates[i]);
                                     found = false;
                                     break;
                                 }
@@ -749,20 +357,13 @@ class OctreeCSG {
                                     statesObj[polygon.previousStates[i]] = true;
                                 }
                             }
-                            debug && console.log("deletePolygonsByStates C");
                             if (found) {
-                                debug && console.log("deletePolygonsByStates D");
-                                // if (polygon.previousState !== "undecided") { // <- NOT TESTED
                                 for (let state in statesObj) {
                                     if (statesObj[state] === false) {
-                                        // if (!mainSatisfied) {
-                                        debug && console.log("deletePolygonsByStates D2");
                                         found = false;
-                                        // }
                                         break;
                                     }
                                 }
-                                // }
 
                                 if (found) {
                                     break;
@@ -778,17 +379,12 @@ class OctreeCSG {
                     }
                 }
                 if (found) {
-                    debug && console.log("deletePolygonsByStates E");
                     let polygonIndex = this.polygons.indexOf(polygon);
                     if (polygonIndex > -1) {
-                        debug && console.log("deletePolygonsByStates F", polygon);
                         polygon.setInvalid();
                         this.polygons.splice(polygonIndex, 1);
-                        // polygon.delete();
                     }
-                    // else {
-                    //     polygon.setInvalid();
-                    // }
+
                     if (firstRun) {
                         polygon.delete();
                     }
@@ -796,7 +392,7 @@ class OctreeCSG {
             });
         }
         for (let i = 0; i < this.subTrees.length; i++) {
-            this.subTrees[i].deletePolygonsByStateRules(rulesArr, debug, false);
+            this.subTrees[i].deletePolygonsByStateRules(rulesArr, false);
         }
     }
 
@@ -813,11 +409,8 @@ class OctreeCSG {
                         if (polygonIndex > -1) {
                             polygon.setInvalid();
                             this.polygons.splice(polygonIndex, 1);
-                            // polygon.delete();
                         }
-                        // else {
-                        //     polygon.setInvalid();
-                        // }
+
                         if (firstRun) {
                             polygon.delete();
                         }
@@ -835,34 +428,17 @@ class OctreeCSG {
             return false;
         }
 
-        // Changing to return true if intersecting with box, if looking only for octrees with polygons that intersects it can lead to incorrectly identifying intersecting polygons 
         return true;
-        // if (this.polygons.length > 0) {
-        //     return true;
-        // }
-        // let isIntersecting = false;
-        // if (this.subTrees.length > 0) {
-        //     for (let i = 0; i < this.subTrees.length; i++) {
-        //         isIntersecting = this.subTrees[i].isPolygonIntersecting(polygon);
-        //         if (isIntersecting) {
-        //             break;
-        //         }
-        //     }
-        // }
-        // return isIntersecting;
     }
     markIntesectingPolygons(targetOctree) {
         if (this.polygons.length > 0) {
             this.polygons.forEach(polygon => {
-                // polygon.intersects = boundingBox.intersectsTriangle(polygon.triangle);
                 polygon.intersects = targetOctree.isPolygonIntersecting(polygon);
-                // polygon.intersects = targetOctree.box.intersectsTriangle(polygon.triangle);
             });
         }
         for (let i = 0; i < this.subTrees.length; i++) {
             this.subTrees[i].markIntesectingPolygons(targetOctree);
         }
-
     }
 
     resetPolygons(resetOriginal = true) {
@@ -887,52 +463,25 @@ class OctreeCSG {
                     continue;
                 }
 
-                let debugPoly = false;
-                // let testTriangle = new THREE.Triangle(new THREE.Vector3(0.29171404242515564, -4.110300540924072, 2.832019329071045), new THREE.Vector3(-0.29171404242515564, -4.110300540924072, 2.832019329071045), new THREE.Vector3(0, -4.3809967041015625, 2.4097442626953125));
-                // if ((OctreeCSG.returnType == -1) && (currentPolygon.triangle.equals(testTriangle))) {
-                //     debugPoly = true;
-                //     console.warn("STARTING DEBUG");
-                // }
-                OctreeCSG.debugPoly = debugPoly;
-                // if (targetOctree.cloned) {
-                //     console.log("clone found", targetOctree.cloned);
-                //     targetOctree = targetOctree.cloned;
-                // }
-                let targetPolygons = targetOctree.getPolygonsIntersectingPolygon(currentPolygon, { debug: debugPoly, useOriginal: true });
-                // console.log("targetPolygons", targetPolygons.length);
+                let targetPolygons = targetOctree.getPolygonsIntersectingPolygon(currentPolygon);
                 if (targetPolygons.length > 0) {
-                    if (debugPoly) {
-                        console.log("BLA POLYGON TARGET COUNT", targetPolygons.length);
-                    }
-                    // let needsBreak = false;
                     for (let j = 0; j < targetPolygons.length; j++) {
                         let target = targetPolygons[j];
-                        if (debugPoly) {
-                            console.log("BLA POLYGON", currentPolygon, target);
-                        }
-                        // console.log("needsBreak", needsBreak);
                         let splitResults = splitPolygonByPlane(currentPolygon, target.plane);
-                        debugPoly && console.log("splitResults", splitResults)
                         if (splitResults.length > 1) {
-                            // let newPolygons = [];
                             for (let i = 0; i < splitResults.length; i++) {
                                 let polygon = splitResults[i].polygon;
                                 polygon.intersects = currentPolygon.intersects;
                                 polygon.newPolygon = true;
-                                // polygon.splitState1 = splitResults[i].type;
                                 polygonStack.push(polygon);
-
-
                             }
                             this.replacePolygon(currentPolygon, splitResults.map(result => result.polygon));
-                            // needsBreak = true;
                             break;
                         }
                         else {
                             if (currentPolygon.id !== splitResults[0].polygon.id) {
                                 splitResults[0].polygon.intersects = currentPolygon.intersects;
                                 splitResults[0].polygon.newPolygon = true;
-                                // splitResults[0].polygon.splitState2 = splitResults[0].type;
                                 polygonStack.push(splitResults[0].polygon);
                                 this.replacePolygon(currentPolygon, splitResults[0].polygon);
                                 break;
@@ -944,197 +493,81 @@ class OctreeCSG {
                                 }
                             }
                         }
-                        // if (needsBreak) {
-                        //     break;
-                        // }
-                        // console.log(j, currentPolygon, target, splitResults); 
-
-                        // let polyType = getPolygonType(currentPolygon, target.plane);
-                        // // console.log(i, currentPolygon, target, polyType);
-                        // let polyType2 = getRayIntersectionType(currentPolygon, target, aMatrixWorld);
-                        // console.log(i, "getRayIntersectionType", polyType2);
                     }
                 }
-                else {
-                    debugPoly && console.log("[handleIntersectingPolygons] Not intersecting with any target polygons", currentPolygon);
-                }
 
-                // if (iteration >= 100) {
-                //     break;
-                // }
-                // console.log("--------------------");
                 currentPolygon = polygonStack.pop();
             }
 
-            // console.log("ASDADASD", this.polygons);
-            // if (OctreeCSG.useWindingNumber === true && targetOctreeAllPolygons === undefined) {
-            //     console.log("[handleIntersectingPolygons] targetOctreeAllPolygons === undefined");
-            //     targetOctreeAllPolygons = targetOctree.getPolygons();
-            // }
             polygonStack = this.polygons.filter(polygon => (polygon.valid == true) && (polygon.intersects == true));
             currentPolygon = polygonStack.pop();
+            let inside = false;
             while (currentPolygon) {
-                // if (currentPolygon.state !== "undecided") {
-                //     continue;
-                // }
                 if (!currentPolygon.valid) {
                     continue;
                 }
 
-                let debugPoly = false;
-
-                // let testTriangle = new THREE.Triangle(new THREE.Vector3(0.29171404242515564, -4.110300540924072, 2.832019329071045), new THREE.Vector3(-0.29171404242515564, -4.110300540924072, 2.832019329071045), new THREE.Vector3(0, -4.3809967041015625, 2.4097442626953125));
-                // if ((OctreeCSG.returnType == -1) && (currentPolygon.triangle.equals(testTriangle))) {
-                //     debugPoly = true;
-                //     console.warn("STARTING DEBUG");
-                // }
-                OctreeCSG.debugPoly = debugPoly;
-                let inside = false;
-                if (targetOctree.box.containsPoint(currentPolygon.triangle.midPoint)) {
+                inside = false;
+                if (targetOctree.box.containsPoint(currentPolygon.getMidpoint())) {
                     if (OctreeCSG.useWindingNumber === true) {
-                        inside = polyInside_WindingNumber_buffer(targetOctreeBuffer, currentPolygon.triangle.midPoint, currentPolygon.coplanar);
+                        inside = polyInside_WindingNumber_buffer(targetOctreeBuffer, currentPolygon.getMidpoint(), currentPolygon.coplanar);
                     }
                     else {
-                        let point = pointRounding(_v2.copy(currentPolygon.triangle.midPoint));
-                        // let point = currentPolygon.triangle.midPoint;
+                        let point = pointRounding(_v2.copy(currentPolygon.getMidpoint()));
 
-                        // let point = pointRounding(currentPolygon.triangle.getMidpoint(_v2));
-                        debugPoly && console.log("point for currentPolygon", point.clone(), currentPolygon);
-                        // let point = currentPolygon.triangle.getMidpoint(_v2);
-                        // _rayDirection.copy(currentPolygon.plane.normal).normalize();
-
-
-
-                        if (OctreeCSG.useOctreeRay !== true) {
-                            // _ray.origin.copy(point);
+                        if (OctreeCSG.useOctreeRay !== true && targetOctree.mesh) {
                             _rayDirection.copy(currentPolygon.plane.normal);
-                            // _raycaster1.ray.origin.copy(point);
-                            // _raycaster1.set(point, _rayDirection);
-                            // for (let i = 0; i < _raycastDirectionsCount; i++) {
-                            //     _raycaster1.ray.direction.copy(_raycastDirections[i]);
-                            //     let intersects = _raycaster1.intersectObject(targetOctree.mesh);
-                            //     // console.log(i, "Intersects?", intersects);
-                            //     if (debugPoly) {
-                            //         console.log("RAY CHECK intersects.length", intersects.length, point, _raycastDirections[i]);
-                            //     }
-                            //     if (intersects.length) {
-
-                            //         if (_raycastDirections[i].dot(intersects[0].face.normal) > 0) {
-                            //             debugPoly && console.log(i, "Point is inside the object", _raycastDirections[i].dot(intersects[0].face.normal));
-                            //             inside = true;
-                            //             break;
-                            //         }
-                            //         else {
-                            //             debugPoly && console.log(i, "Point is outside the object", _raycastDirections[i].dot(intersects[0].face.normal));
-                            //         }
-                            //     }
-                            // }
                             _raycaster1.set(point, _rayDirection);
-                            let intersects = _raycaster1.intersectObject(targetOctree.mesh);
-                            // console.log(i, "Intersects?", intersects);
-                            if (debugPoly) {
-                                console.log("RAY CHECK intersects.length", intersects.length, point, _rayDirection);
-                            }
-                            if (intersects.length) {
 
+                            let intersects = _raycaster1.intersectObject(targetOctree.mesh);
+                            if (intersects.length) {
                                 if (_rayDirection.dot(intersects[0].face.normal) > 0) {
-                                    debugPoly && console.log("Point is inside the object", _rayDirection.dot(intersects[0].face.normal));
                                     inside = true;
                                 }
-                                else {
-                                    debugPoly && console.log("Point is outside the object", _rayDirection.dot(intersects[0].face.normal));
-                                }
-
                             }
                             if (!inside && currentPolygon.coplanar) {
-                                // let coplanarFound = false;
-                                // console.log("POLYGON IS COPLANAR");
                                 for (let j = 0; j < _wP_EPS_ARR_COUNT; j++) {
-                                    // console.warn("DOES IT GET HERE?");
                                     _raycaster1.ray.origin.copy(point).add(_wP_EPS_ARR[j]);
-                                    // let intersects = targetOctree.rayIntersect(_ray, targetOctree.mesh.matrixWorld);
-                                    let intersects = _raycaster1.intersectObject(targetOctree.mesh);
-                                    // console.log(i, "Intersects?", intersects);
-                                    if (debugPoly) {
-                                        console.log("RAY CHECK intersects.length", intersects.length, point, _rayDirection);
-                                    }
-                                    if (intersects.length) {
 
+                                    let intersects = _raycaster1.intersectObject(targetOctree.mesh);
+                                    if (intersects.length) {
                                         if (_rayDirection.dot(intersects[0].face.normal) > 0) {
-                                            debugPoly && console.log("Point is inside the object", _rayDirection.dot(intersects[0].face.normal));
                                             inside = true;
                                             break;
                                         }
-                                        else {
-                                            debugPoly && console.log("Point is outside the object", _rayDirection.dot(intersects[0].face.normal));
-                                        }
-
                                     }
                                 }
-                                // if (coplanarFound) {
-                                //     console.log("Found as coplanar", _ray.clone());
-                                // }
                             }
                         }
                         else {
-                            // let ray = new Ray(point, _rayDirection);
                             _ray.origin.copy(point);
                             _rayDirection.copy(currentPolygon.plane.normal);
-                            // _ray.direction.copy(_rayDirection);
                             _ray.direction.copy(currentPolygon.plane.normal);
-                            // let intersects = targetOctree.rayIntersect(_ray, targetOctree.mesh.matrixWorld);
-                            let intersects = targetOctree.rayIntersect(_ray, targetOctree.originalMatrixWorld, { useOriginal: true });
-                            if (debugPoly) {
-                                console.log("RAY CHECK intersects.length", intersects.length, point, _rayDirection);
-                            }
+
+                            let intersects = targetOctree.rayIntersect(_ray, targetOctree.originalMatrixWorld);
                             if (intersects.length) {
                                 if (_rayDirection.dot(intersects[0].polygon.plane.normal) > 0) {
-                                    debugPoly && console.log("Point is inside the object", _rayDirection.dot(intersects[0].polygon.plane.normal));
                                     inside = true;
-                                    // break;
                                 }
-                                else {
-                                    debugPoly && console.log("Point is outside the object", _rayDirection.dot(intersects[0].polygon.plane.normal));
-                                }
-
                             }
                             if (!inside && currentPolygon.coplanar) {
-                                // let coplanarFound = false;
-                                // console.log("POLYGON IS COPLANAR");
                                 for (let j = 0; j < _wP_EPS_ARR_COUNT; j++) {
-                                    // console.warn("DOES IT GET HERE?");
                                     _ray.origin.copy(point).add(_wP_EPS_ARR[j]);
                                     _rayDirection.copy(currentPolygon.plane.normal);
                                     _ray.direction.copy(currentPolygon.plane.normal);
-                                    // let intersects = targetOctree.rayIntersect(_ray, targetOctree.mesh.matrixWorld);
-                                    let intersects = targetOctree.rayIntersect(_ray, targetOctree.originalMatrixWorld, { useOriginal: true });
-                                    if (debugPoly) {
-                                        console.log("RAY CHECK intersects.length", intersects.length, point, _rayDirection);
-                                    }
+                                    let intersects = targetOctree.rayIntersect(_ray, targetOctree.originalMatrixWorld);
                                     if (intersects.length) {
                                         if (_rayDirection.dot(intersects[0].polygon.plane.normal) > 0) {
-                                            debugPoly && console.log("Point is inside the object", _rayDirection.dot(intersects[0].polygon.plane.normal));
                                             inside = true;
-                                            // coplanarFound = true;
                                             break;
                                         }
-                                        else {
-                                            debugPoly && console.log("Point is outside the object", _rayDirection.dot(intersects[0].polygon.plane.normal));
-                                        }
-
                                     }
                                 }
-                                // if (coplanarFound) {
-                                //     console.log("Found as coplanar", _ray.clone());
-                                // }
                             }
                         }
                     }
                 }
 
-                if (debugPoly) {
-                    console.log("CHECK INSIDE", inside);
-                }
                 if (inside === true) {
                     currentPolygon.setState("inside");
                 }
@@ -1151,176 +584,19 @@ class OctreeCSG {
         }
     }
 
-    handleIntersectingPolygons_reduced(targetOctree, targetOctreeBuffer) { // used in async functions
-        // async handleIntersectingPolygons_async(targetOctree, targetOctreeBuffer) {
-        // return new Promise(async (resolve, reject) => {
-        //     try {
-        if (this.polygons.length > 0) {
-            // testvar++;
-            // this.polygons.forEach(polygon => {
-            //     polygon.reset();
-            // });
-
-            // TESTING NEW METHOD
-            let polygonStack = this.polygons.filter(polygon => (polygon.valid == true) && (polygon.intersects == true) && (polygon.state == "undecided"));
-            let currentPolygon = polygonStack.pop();
-            while (currentPolygon) {
-                if (currentPolygon.state !== "undecided") {
-                    continue;
-                }
-                if (!currentPolygon.valid) {
-                    continue;
-                }
-
-                let debugPoly = false;
-                // let testTriangle = new THREE.Triangle(new THREE.Vector3(0.29171404242515564, -4.110300540924072, 2.832019329071045), new THREE.Vector3(-0.29171404242515564, -4.110300540924072, 2.832019329071045), new THREE.Vector3(0, -4.3809967041015625, 2.4097442626953125));
-                // if ((OctreeCSG.returnType == -1) && (currentPolygon.triangle.equals(testTriangle))) {
-                //     debugPoly = true;
-                //     console.warn("STARTING DEBUG");
-                // }
-                OctreeCSG.debugPoly = debugPoly;
-                let targetPolygons = targetOctree.getPolygonsIntersectingPolygon(currentPolygon, { debug: debugPoly, useOriginal: true });
-
-                if (targetPolygons.length > 0) {
-                    if (debugPoly) {
-                        console.log("BLA POLYGON TARGET COUNT", targetPolygons.length);
-                    }
-                    // let needsBreak = false;
-                    for (let j = 0; j < targetPolygons.length; j++) {
-                        let target = targetPolygons[j];
-                        if (debugPoly) {
-                            console.log("BLA POLYGON", currentPolygon, target);
-                        }
-                        // console.log("needsBreak", needsBreak);
-                        let splitResults = splitPolygonByPlane(currentPolygon, target.plane);
-                        debugPoly && console.log("splitResults", splitResults)
-                        if (splitResults.length > 1) {
-                            // let newPolygons = [];
-                            for (let i = 0; i < splitResults.length; i++) {
-                                let polygon = splitResults[i].polygon;
-                                polygon.intersects = currentPolygon.intersects;
-                                polygon.splitState1 = splitResults[i].type;
-                                polygonStack.push(polygon);
-                            }
-                            this.replacePolygon(currentPolygon, splitResults.map(result => result.polygon));
-                            break;
-                        }
-                        else {
-                            if (currentPolygon.id !== splitResults[0].polygon.id) {
-                                splitResults[0].polygon.intersects = currentPolygon.intersects;
-                                splitResults[0].polygon.splitState2 = splitResults[0].type;
-                                polygonStack.push(splitResults[0].polygon);
-                                this.replacePolygon(currentPolygon, splitResults[0].polygon);
-                                break;
-                            }
-                            else {
-                                if ((splitResults[0].type == "coplanar-front") || (splitResults[0].type == "coplanar-back")) {
-                                    currentPolygon.setState(splitResults[0].type);
-                                    currentPolygon.coplanar = true;
-                                }
-                            }
-                        }
-                    }
-                }
-                else {
-                    debugPoly && console.log("[handleIntersectingPolygons] Not intersecting with any target polygons", currentPolygon);
-                }
-
-                currentPolygon = polygonStack.pop();
-            }
-
-            /*
-            polygonStack = this.polygons.filter(polygon => (polygon.valid == true) && (polygon.intersects == true));
-            let runningWebWorkers = [];
-            currentPolygon = polygonStack.pop();
-            while (currentPolygon) {
-                // console.warn("Checking loop polygon id", currentPolygon.id);
-                if (!currentPolygon.valid) {
-                    continue;
-                }
- 
-                let debugPoly = false;
- 
-                // let testTriangle = new THREE.Triangle(new THREE.Vector3(0.29171404242515564, -4.110300540924072, 2.832019329071045), new THREE.Vector3(-0.29171404242515564, -4.110300540924072, 2.832019329071045), new THREE.Vector3(0, -4.3809967041015625, 2.4097442626953125));
-                // if ((OctreeCSG.returnType == -1) && (currentPolygon.triangle.equals(testTriangle))) {
-                //     debugPoly = true;
-                //     console.warn("STARTING DEBUG");
-                // }
-                OctreeCSG.debugPoly = debugPoly;
-                let inside = false;
-                if (targetOctree.box.containsPoint(currentPolygon.triangle.midPoint)) {
-                    // if (OctreeCSG.useWindingNumber === true) {
-                    // let responses = [];
-                    // // let result1 = OctreeCSG.testWorker(1);
-                    // // let result2 = OctreeCSG.testWorker(2);
-                    let worker = getAvailableWorker();
-                    while (!worker) {
-                        // console.log("Waiting for worker");
-                        await sleep(1);
-                        worker = getAvailableWorker();
-                    }
- 
-                    worker.checkWindingNumber({
-                        type: 'windingNumber',
-                        point: currentPolygon.triangle.midPoint,
-                        coplanar: currentPolygon.coplanar,
-                        polygonID: currentPolygon.id,
-                        triangles: targetOctreeBuffer
-                    }, currentPolygon).then(worker => {
-                        // console.log("Worker finished", worker.id);
-                        let workerIndex = runningWebWorkers.indexOf(worker);
-                        if (workerIndex > -1) {
-                            runningWebWorkers.splice(workerIndex, 1);
-                        }
-                    });
-                    runningWebWorkers.push(worker);
- 
-                }
-                else {
-                    currentPolygon.setState("outside");
-                }
- 
-                // if (debugPoly) {
-                //     console.log("CHECK INSIDE", inside);
-                // }
-                // if (inside === true) {
-                //     currentPolygon.setState("inside");
-                // }
-                // else {
-                //     currentPolygon.setState("outside");
-                // }
- 
-                currentPolygon = polygonStack.pop();
-            }
-            // console.log("START WAITING", runningWebWorkers.length);
-            while (runningWebWorkers.length) {
-                // console.log("Waiting to finish");
-                await sleep(1);
-            }
-            // console.log("FINISHED WAITING", runningWebWorkers.length);
-            */
-
-        }
-        for (let i = 0; i < this.subTrees.length; i++) {
-            // await this.subTrees[i].handleIntersectingPolygons_async(targetOctree, targetOctreeBuffer);
-            this.subTrees[i].handleIntersectingPolygons_reduced(targetOctree, targetOctreeBuffer);
-        }
-        // resolve();
-        //     }
-        //     catch (e) {
-        //         reject(e);
-        //     }
-        // });
-    }
-
-    delete() {
-        if (this.polygons.length > 0) {
+    delete(deletePolygons = true) {
+        if (this.polygons.length > 0 && deletePolygons) {
             this.polygons.forEach(p => p.delete());
             this.polygons.length = 0;
         }
+        if (this.replacedPolygons.length > 0 && deletePolygons) {
+            this.replacedPolygons.forEach(p => p.delete());
+            this.replacedPolygons.length = 0;
+        }
+
         if (this.subTrees.length) {
             for (let i = 0; i < this.subTrees.length; i++) {
-                this.subTrees[i].delete(false);
+                this.subTrees[i].delete(deletePolygons);
             }
             this.subTrees.length = 0;
         }
@@ -1328,19 +604,8 @@ class OctreeCSG {
         this.originalMatrixWorld = undefined;
         this.box = undefined;
         this.parent = undefined;
+        this.level = undefined;
     }
-    // getPolygonCallback(cbFunc) {
-    //     if (this.polygons.length > 0) {
-    //         for (let i = 0; i < this.polygons.length; i++) {
-    //             if (this.polygons[i].valid) {
-    //                 cbFunc(this.polygons[i]);
-    //             }
-    //         }
-    //     }
-    //     for (let i = 0; i < this.subTrees.length; i++) {
-    //         this.subTrees[i].getPolygonCallback(cbFunc);
-    //     }
-    // }
     getPolygonCloneCallback(cbFunc) {
         if (this.polygons.length > 0) {
             for (let i = 0; i < this.polygons.length; i++) {
@@ -1370,8 +635,40 @@ class OctreeCSG {
             this.subTrees[i].markPolygonsAsOriginal();
         }
     }
+    applyMatrix(matrix, normalMatrix, firstRun = true) {
+        if (matrix.isMesh) {
+            matrix.updateMatrix();
+            matrix = matrix.matrix;
+        }
+        this.box.makeEmpty();
+        normalMatrix = normalMatrix || tmpm3.getNormalMatrix(matrix);
+        if (this.polygons.length > 0) {
+            for (let i = 0; i < this.polygons.length; i++) {
+                if (this.polygons[i].valid) {
+                    this.polygons[i].applyMatrix(matrix, normalMatrix);
+                }
+            }
+        }
+        for (let i = 0; i < this.subTrees.length; i++) {
+            this.subTrees[i].applyMatrix(matrix, normalMatrix, false);
+        }
+        if (firstRun) {
+            this.processTree();
+        }
+    }
+    setPolygonIndex(index) {
+        if (index === undefined) {
+            return;
+        }
+        if (this.polygons.length > 0) {
+            this.polygons.forEach(p => p.shared = index);
+        }
+        for (let i = 0; i < this.subTrees.length; i++) {
+            this.subTrees[i].setPolygonIndex(index);
+        }
+    }
 }
-
+OctreeCSG.prototype.isOctree = true;
 
 function raycastIntersectAscSort(a, b) {
     return a.distance - b.distance;
@@ -1504,6 +801,114 @@ function splitPolygonArr(arr) {
     return resultArr;
 }
 
+
+const CSG_Rules = {
+    union: {
+        a: [
+            {
+                array: true,
+                rule: ["inside", "coplanar-back"]
+            },
+            {
+                array: false,
+                rule: "inside"
+            }
+        ],
+        b: [
+            {
+                array: true,
+                rule: ["inside", "coplanar-back"]
+            },
+            {
+                array: true,
+                rule: ["inside", "coplanar-front"]
+            },
+            {
+                array: false,
+                rule: "inside"
+            }
+        ]
+    },
+    subtract: {
+        a: [
+            {
+                array: true,
+                rule: ["inside", "coplanar-back"]
+            },
+            {
+                array: true,
+                rule: ["inside", "coplanar-front"]
+            },
+            {
+                array: false,
+                rule: "inside"
+            }
+        ],
+        b: [
+            {
+                array: true,
+                rule: ["outside", "coplanar-back"]
+            },
+            {
+                array: true,
+                rule: ["outside", "coplanar-front"]
+            },
+            {
+                array: true,
+                rule: ["inside", "coplanar-front"]
+            },
+            {
+                array: false,
+                rule: "outside"
+            }
+        ]
+    },
+    intersect: {
+        a: [
+            {
+                array: true,
+                rule: ["inside", "coplanar-back"]
+            },
+            {
+                array: true,
+                rule: ["outside", "coplanar-front"]
+            },
+            {
+                array: true,
+                rule: ["outside", "coplanar-back"]
+            },
+            {
+                array: false,
+                rule: "outside"
+            }
+        ],
+        b: [
+            {
+                array: true,
+                rule: ["inside", "coplanar-front"]
+            },
+            {
+                array: true,
+                rule: ["inside", "coplanar-back"]
+            },
+            {
+                array: true,
+                rule: ["outside", "coplanar-front"]
+            },
+            {
+                array: true,
+                rule: ["outside", "coplanar-back"]
+            },
+            {
+                array: false,
+                rule: "outside"
+            }
+        ]
+    }
+};
+// class OctreeCSG { };
+
+
 /*
 Union:
 1. Delete all polygons in A that are:
@@ -1522,11 +927,11 @@ OctreeCSG.union = function (octreeA, octreeB, buildTargetOctree = true) {
         let currentMeshSideB;
         if (octreeA.mesh) {
             currentMeshSideA = octreeA.mesh.material.side;
-            octreeA.mesh.material.side = OctreeCSG.testSide;
+            octreeA.mesh.material.side = DoubleSide;
         }
         if (octreeB.mesh) {
             currentMeshSideB = octreeB.mesh.material.side;
-            octreeB.mesh.material.side = OctreeCSG.testSide;
+            octreeB.mesh.material.side = DoubleSide;
         }
 
         octreeA.resetPolygons(false);
@@ -1539,97 +944,15 @@ OctreeCSG.union = function (octreeA, octreeB, buildTargetOctree = true) {
         octreeA.deleteReplacedPolygons();
         octreeB.deleteReplacedPolygons();
 
-        octreeA.deletePolygonsByStateRules([
-            {
-                array: true,
-                rule: ["inside", "coplanar-back"]
-            },
-            {
-                array: false,
-                rule: "inside"
-            }
-        ]);
-
-        octreeB.deletePolygonsByStateRules([
-            {
-                array: true,
-                rule: ["inside", "coplanar-back"]
-            },
-            {
-                array: true,
-                rule: ["inside", "coplanar-front"]
-            },
-            {
-                array: false,
-                rule: "inside"
-            }
-        ]);
-
-        if (OctreeCSG.returnType == 0) {
-            octreeA.getPolygonCloneCallback(octree.addPolygon.bind(octree));
-            octreeB.getPolygonCloneCallback(octree.addPolygon.bind(octree));
-        }
-        else if (OctreeCSG.returnType == -1) {
-            console.log("OctreeA");
-            let polys_test = octreeA.getPolygons();
-            let limit = Math.min(polys_test.length, 50000);
-            console.log(`[octreeA] polys_test`, polys_test.length, limit);
-            let count = 0;
-            for (let i = 0; i < limit; i++) {
-                if (polys_test[i].intersects) {
-                    let t = polys_test[i].triangle;
-                    // if ((t.a.x <= 1) && (t.b.x <= 1) && (t.c.x <= 1)) {
-                    //     if ((t.a.x >= -4) && (t.b.x >= -4) && (t.c.x >= -4)) {
-                    // if ((t.a.y == -1) && (t.b.y == -1) && (t.c.y == -1)) {
-                    // if ((t.a.z <= 4) && (t.b.z <= 4) && (t.c.z <= 4)) {
-                    // if ((t.a.z > -5) && (t.b.z > -5) && (t.c.z > -5)) {
-                    // console.log("AAAA", i, t, polys_test[i]);
-                    octree.addPolygon(polys_test[i]);
-                    count++;
-                    // }
-                    // }
-                    // }
-                    //     }
-                    // }
-                }
-                // else {
-                // octree.addPolygon(polys_test[i]);
-                // }
-            }
-            console.log("AAAA ADDED COUNT", count);
-        }
-        else {
-            console.log("OctreeB");
-            let polys_test = octreeB.getPolygons();
-            let limit = Math.min(polys_test.length, 50000);
-            console.log(`[octreeB] polys_test`, polys_test.length, limit);
-            let count = 0;
-            for (let i = 0; i < limit; i++) {
-                if (polys_test[i].intersects) {
-                    // console.log(i, polys_test[i]);
-                    let t = polys_test[i].triangle;
-                    // if ((t.a.x <= 1) && (t.b.x <= 1) && (t.c.x <= 1)) {
-                    //     if ((t.a.x >= -2) && (t.b.x >= -2) && (t.c.x >= -2)) {
-                    // if ((t.a.y >= 3) && (t.b.y >= 3) && (t.c.y >= 3)) {
-                    //     if ((t.a.z <= 1) && (t.b.z <= 1) && (t.c.z <= 1)) {
-                    //         if ((t.a.z >= -2) && (t.b.z >= -2) && (t.c.z >= -2)) {
-                    //             if (polys_test[i].checkAllStates("back")) {
 
 
-                    // console.log("BBBB", i, t, polys_test[i]);
-                    octree.addPolygon(polys_test[i]);
-                    count++;
-                    // }
-                    //         }
-                    //     }
-                    // }
-                }
-                // else {
-                // octree.addPolygon(polys_test[i]);
-                // }
-            }
-            console.log("BBBB ADDED COUNT", count);
-        }
+        octreeA.deletePolygonsByStateRules(CSG_Rules.union.a);
+        octreeB.deletePolygonsByStateRules(CSG_Rules.union.b);
+
+
+        octreeA.getPolygonCloneCallback(octree.addPolygon.bind(octree));
+        octreeB.getPolygonCloneCallback(octree.addPolygon.bind(octree));
+
         octree.markPolygonsAsOriginal();
         buildTargetOctree && octree.buildTree();
         if (octreeA.mesh) {
@@ -1673,11 +996,11 @@ OctreeCSG.subtract = function (octreeA, octreeB, buildTargetOctree = true) {
         let currentMeshSideB;
         if (octreeA.mesh) {
             currentMeshSideA = octreeA.mesh.material.side;
-            octreeA.mesh.material.side = OctreeCSG.testSide;
+            octreeA.mesh.material.side = DoubleSide;
         }
         if (octreeB.mesh) {
             currentMeshSideB = octreeB.mesh.material.side;
-            octreeB.mesh.material.side = OctreeCSG.testSide;
+            octreeB.mesh.material.side = DoubleSide;
         }
 
         octreeA.resetPolygons(false);
@@ -1690,88 +1013,17 @@ OctreeCSG.subtract = function (octreeA, octreeB, buildTargetOctree = true) {
         octreeA.deleteReplacedPolygons();
         octreeB.deleteReplacedPolygons();
 
-        octreeA.deletePolygonsByStateRules([
-            {
-                array: true,
-                rule: ["inside", "coplanar-back"]
-            },
-            {
-                array: true,
-                rule: ["inside", "coplanar-front"]
-            },
-            {
-                array: false,
-                rule: "inside"
-            }
-        ]);
-        octreeB.deletePolygonsByStateRules([
-            {
-                array: true,
-                rule: ["outside", "coplanar-back"]
-            },
-            {
-                array: true,
-                rule: ["outside", "coplanar-front"]
-            },
-            {
-                array: true,
-                rule: ["inside", "coplanar-front"]
-            },
-            {
-                array: false,
-                rule: "outside"
-            }
-        ]);
+        octreeA.deletePolygonsByStateRules(CSG_Rules.subtract.a);
+        octreeB.deletePolygonsByStateRules(CSG_Rules.subtract.b);
 
 
         octreeB.deletePolygonsByIntersection(false);
 
-
         octreeB.invert();
 
+        octreeA.getPolygonCloneCallback(octree.addPolygon.bind(octree));
+        octreeB.getPolygonCloneCallback(octree.addPolygon.bind(octree));
 
-        if (OctreeCSG.returnType == 0) {
-            octreeA.getPolygonCloneCallback(octree.addPolygon.bind(octree));
-            octreeB.getPolygonCloneCallback(octree.addPolygon.bind(octree));
-        }
-        else if (OctreeCSG.returnType == -1) {
-            console.log("OctreeA");
-            let polys_test = octreeA.getPolygons();
-            let limit = Math.min(polys_test.length, 50000);
-            console.log(`[octreeA] polys_test`, polys_test.length, limit);
-            for (let i = 0; i < limit; i++) {
-                if (polys_test[i].intersects) {
-                    let t = polys_test[i].triangle;
-                    if (((t.a.y < -3) && (t.b.y < -3) && (t.c.y < -3))) {
-                        // if (((t.a.x >= 0.8) && (t.b.x >= 0.8) && (t.c.x >= 0.8))) {
-                        console.log("AAAA", i, t, polys_test[i]);
-                        octree.addPolygon(polys_test[i]);
-                    }
-                }
-                // else {
-                // octree.addPolygon(polys_test[i]);
-                // }
-            }
-        }
-        else {
-            console.log("OctreeB");
-            let polys_test = octreeB.getPolygons();
-            let limit = Math.min(polys_test.length, 50000);
-            console.log(`[octreeB] polys_test`, polys_test.length, limit);
-            for (let i = 0; i < limit; i++) {
-                if (polys_test[i].intersects) {
-                    let t = polys_test[i].triangle;
-                    // if ((t.a.x <= 1) && (t.b.x <= 1) && (t.c.x <= 1)) {
-                    // if (((t.a.y === -5) && (t.b.y === -5) && (t.c.y === -5))) {
-                    //     console.log("BBBB", i, t, polys_test[i]);
-                    octree.addPolygon(polys_test[i]);
-                    // }
-                }
-                // else {
-                // octree.addPolygon(polys_test[i]);
-                // }
-            }
-        }
 
         if (octreeA.mesh) {
             if (octreeA.mesh.material.side !== currentMeshSideA) {
@@ -1814,11 +1066,11 @@ OctreeCSG.intersect = function (octreeA, octreeB, buildTargetOctree = true) {
         let currentMeshSideB;
         if (octreeA.mesh) {
             currentMeshSideA = octreeA.mesh.material.side;
-            octreeA.mesh.material.side = OctreeCSG.testSide;
+            octreeA.mesh.material.side = DoubleSide;
         }
         if (octreeB.mesh) {
             currentMeshSideB = octreeB.mesh.material.side;
-            octreeB.mesh.material.side = OctreeCSG.testSide;
+            octreeB.mesh.material.side = DoubleSide;
         }
 
         octreeA.resetPolygons(false);
@@ -1831,99 +1083,14 @@ OctreeCSG.intersect = function (octreeA, octreeB, buildTargetOctree = true) {
         octreeA.deleteReplacedPolygons();
         octreeB.deleteReplacedPolygons();
 
-        octreeA.deletePolygonsByStateRules([
-            {
-                array: true,
-                rule: ["inside", "coplanar-back"]
-            },
-            {
-                array: true,
-                rule: ["outside", "coplanar-front"]
-            },
-            {
-                array: true,
-                rule: ["outside", "coplanar-back"]
-            },
-            {
-                array: false,
-                rule: "outside"
-            }
-        ]);
+        octreeA.deletePolygonsByStateRules(CSG_Rules.intersect.a);
+        octreeB.deletePolygonsByStateRules(CSG_Rules.intersect.b);
 
-        octreeB.deletePolygonsByStateRules([
-            {
-                array: true,
-                rule: ["inside", "coplanar-front"]
-            },
-            {
-                array: true,
-                rule: ["inside", "coplanar-back"]
-            },
-            {
-                array: true,
-                rule: ["outside", "coplanar-front"]
-            },
-            {
-                array: true,
-                rule: ["outside", "coplanar-back"]
-            },
-            {
-                array: false,
-                rule: "outside"
-            }
-        ]);
         octreeA.deletePolygonsByIntersection(false);
         octreeB.deletePolygonsByIntersection(false);
 
-        if (OctreeCSG.returnType == 0) {
-            octreeA.getPolygonCloneCallback(octree.addPolygon.bind(octree));
-            octreeB.getPolygonCloneCallback(octree.addPolygon.bind(octree));
-        }
-        else if (OctreeCSG.returnType == -1) {
-            console.log("OctreeA");
-            let polys_test = octreeA.getPolygons();
-            let limit = Math.min(polys_test.length, 50000);
-            console.log(`[octreeA] polys_test`, polys_test.length, limit);
-            for (let i = 0; i < limit; i++) {
-                if (polys_test[i].intersects) {
-                    let t = polys_test[i].triangle;
-                    // if (((t.a.y < -3) && (t.b.y < -3) && (t.c.y < -3))) {
-                    // if (((t.a.x >= 0.8) && (t.b.x >= 0.8) && (t.c.x >= 0.8))) {
-                    // console.log("AAAA", i, t, polys_test[i]);
-                    octree.addPolygon(polys_test[i]);
-                    // }
-                }
-                // else {
-                // octree.addPolygon(polys_test[i]);
-                // }
-            }
-        }
-        else {
-            console.log("OctreeB");
-            let polys_test = octreeB.getPolygons();
-            let limit = Math.min(polys_test.length, 50000);
-            console.log(`[octreeB] polys_test`, polys_test.length, limit);
-            for (let i = 0; i < limit; i++) {
-                if (polys_test[i].intersects) {
-                    let t = polys_test[i].triangle;
-                    // if ((t.a.x <= 1) && (t.b.x <= 1) && (t.c.x <= 1)) {
-                    // if (((t.a.y === -5) && (t.b.y === -5) && (t.c.y === -5))) {
-                    // console.log("BBBB", i, t, polys_test[i]);
-                    octree.addPolygon(polys_test[i]);
-                    // }
-                }
-                // else {
-                // octree.addPolygon(polys_test[i]);
-                // }
-            }
-        }
-
-        // let polys_test = octreeB.getPolygons();
-        // let limit = Math.min(polys_test.length, 50);
-        // for (let i = 0; i < limit; i++) {
-        //     console.log(i, polys_test[i]);
-        //     octree.addPolygon(polys_test[i]);
-        // }
+        octreeA.getPolygonCloneCallback(octree.addPolygon.bind(octree));
+        octreeB.getPolygonCloneCallback(octree.addPolygon.bind(octree));
 
         if (octreeA.mesh) {
             if (octreeA.mesh.material.side !== currentMeshSideA) {
@@ -1936,17 +1103,586 @@ OctreeCSG.intersect = function (octreeA, octreeB, buildTargetOctree = true) {
             }
         }
     }
-    // else {
-    //     octreeA.getPolygonCloneCallback(octree.addPolygon.bind(octree));
-    // }
+
     octree.markPolygonsAsOriginal();
     buildTargetOctree && octree.buildTree();
-    // octree.invert();
+
     return octree;
 }
 
+OctreeCSG.meshUnion = function (mesh1, mesh2, targetMaterial) {
+    let octreeA;
+    let octreeB;
+    if (targetMaterial && Array.isArray(targetMaterial)) {
+        octreeA = OctreeCSG.fromMesh(mesh1, 0);
+        octreeB = OctreeCSG.fromMesh(mesh2, 1);
+    }
+    else {
+        octreeA = OctreeCSG.fromMesh(mesh1);
+        octreeB = OctreeCSG.fromMesh(mesh2);
+        targetMaterial = targetMaterial !== undefined ? targetMaterial : (Array.isArray(mesh1.material) ? mesh1.material[0] : mesh1.material).clone();
+    }
+    let resultOctree = OctreeCSG.union(octreeA, octreeB, false);
+    let resultMesh = OctreeCSG.toMesh(resultOctree, targetMaterial);
+    disposeOctree(octreeA, octreeB, resultOctree);
+    return resultMesh;
+}
+OctreeCSG.meshSubtract = function (mesh1, mesh2, targetMaterial) {
+    let octreeA;
+    let octreeB;
+    if (targetMaterial && Array.isArray(targetMaterial)) {
+        octreeA = OctreeCSG.fromMesh(mesh1, 0);
+        octreeB = OctreeCSG.fromMesh(mesh2, 1);
+    }
+    else {
+        octreeA = OctreeCSG.fromMesh(mesh1);
+        octreeB = OctreeCSG.fromMesh(mesh2);
+        targetMaterial = targetMaterial !== undefined ? targetMaterial : (Array.isArray(mesh1.material) ? mesh1.material[0] : mesh1.material).clone();
+    }
+    let resultOctree = OctreeCSG.subtract(octreeA, octreeB, false);
+    let resultMesh = OctreeCSG.toMesh(resultOctree, targetMaterial);
+    disposeOctree(octreeA, octreeB, resultOctree);
+    return resultMesh;
+}
+OctreeCSG.meshIntersect = function (mesh1, mesh2, targetMaterial) {
+    let octreeA;
+    let octreeB;
+    if (targetMaterial && Array.isArray(targetMaterial)) {
+        octreeA = OctreeCSG.fromMesh(mesh1, 0);
+        octreeB = OctreeCSG.fromMesh(mesh2, 1);
+    }
+    else {
+        octreeA = OctreeCSG.fromMesh(mesh1);
+        octreeB = OctreeCSG.fromMesh(mesh2);
+        targetMaterial = targetMaterial !== undefined ? targetMaterial : (Array.isArray(mesh1.material) ? mesh1.material[0] : mesh1.material).clone();
+    }
+    let resultOctree = OctreeCSG.intersect(octreeA, octreeB, false);
+    let resultMesh = OctreeCSG.toMesh(resultOctree, targetMaterial);
+    disposeOctree(octreeA, octreeB, resultOctree);
+    return resultMesh;
+}
+let _asyncUnionID = 0;
+let _asyncUnionArrayID = 0;
+OctreeCSG.disposeOctree = true;
+OctreeCSG.async = {
+    batchSize: 100,
+    union: function (octreeA, octreeB, buildTargetOctree = true) {
+        return new Promise((resolve, reject) => {
+            // const id = _asyncUnionID++;
+            // console.log(`Promise Union #${id} started`);
+            try {
+                let result = OctreeCSG.union(octreeA, octreeB, buildTargetOctree);
+                resolve(result);
+                disposeOctree(octreeA, octreeB);
+            }
+            catch (e) {
+                reject(e);
+            }
+        });
+    },
+    subtract: function (octreeA, octreeB, buildTargetOctree = true) {
+        return new Promise((resolve, reject) => {
+            try {
+                let result = OctreeCSG.subtract(octreeA, octreeB, buildTargetOctree);
+                resolve(result);
+                disposeOctree(octreeA, octreeB);
+            }
+            catch (e) {
+                reject(e);
+            }
+        });
+    },
+    intersect: function (octreeA, octreeB, buildTargetOctree = true) {
+        return new Promise((resolve, reject) => {
+            try {
+                let result = OctreeCSG.intersect(octreeA, octreeB, buildTargetOctree);
+                resolve(result);
+                disposeOctree(octreeA, octreeB);
+            }
+            catch (e) {
+                reject(e);
+            }
+        });
+    },
+
+    unionArray: function (objArr, materialIndexMax = Infinity) {
+        return new Promise((resolve, reject) => {
+            try {
+                let usingBatches = OctreeCSG.async.batchSize > 4 && OctreeCSG.async.batchSize < objArr.length;
+                // const id = _asyncUnionArrayID++
+                // console.log(`Promise Union Array #${id}`, usingBatches);
+                let mainOctree;
+                let mainOctreeUsed = false;
+                let promises = [];
+                if (usingBatches) {
+                    let batches = [];
+                    let currentIndex = 0;
+                    while (currentIndex < objArr.length) {
+                        batches.push(objArr.slice(currentIndex, currentIndex + OctreeCSG.async.batchSize));
+                        currentIndex += OctreeCSG.async.batchSize
+                    }
+
+                    let batch = batches.shift();
+                    while (batch) {
+                        let promise = OctreeCSG.async.unionArray(batch, 0);
+                        promises.push(promise);
+                        batch = batches.shift();
+                    }
+                    usingBatches = true;
+                    mainOctreeUsed = true;
+                    objArr.length = 0;
+                }
+                else {
+                    let octreesArray = [];
+                    for (let i = 0; i < objArr.length; i++) {
+                        let materialIndex = i > materialIndexMax ? materialIndexMax : i;
+                        let tempOctree
+                        if (objArr[i].isMesh) {
+                            tempOctree = OctreeCSG.fromMesh(objArr[i], materialIndexMax > -1 ? materialIndex : undefined);
+                        }
+                        else {
+                            tempOctree = objArr[i];
+                            if (materialIndexMax > -1) {
+                                tempOctree.setPolygonIndex(materialIndex);
+                            }
+                        }
+                        tempOctree.octreeIndex = i;
+                        octreesArray.push(tempOctree);
+                    }
+                    mainOctree = octreesArray.shift();
+
+                    let result;
+                    let hasLeftOver = false;
+                    let leftOverOctree;
+                    for (let i = 0; i < octreesArray.length; i += 2) {
+                        if (i + 1 >= octreesArray.length) {
+                            leftOverOctree = octreesArray[i];
+                            hasLeftOver = true;
+                            break;
+                        }
+                        let promise = OctreeCSG.async.union(octreesArray[i], octreesArray[i + 1]);
+                        promises.push(promise);
+                    }
+                    if (leftOverOctree) {
+                        let promise = OctreeCSG.async.union(mainOctree, leftOverOctree);
+                        promises.push(promise);
+                        mainOctreeUsed = true;
+                    }
+                }
+                Promise.allSettled(promises).then(results => {
+                    let octrees = []
+                    results.forEach(r => {
+                        if (r.status === "fulfilled") {
+                            octrees.push(r.value);
+                        }
+                    });
+                    if (!mainOctreeUsed) {
+                        octrees.unshift(mainOctree);
+                    }
+                    if (octrees.length > 0) {
+                        if (octrees.length === 1) {
+                            resolve(octrees[0]);
+                        }
+                        else if (octrees.length > 3) {
+                            OctreeCSG.async.unionArray(octrees, usingBatches ? 0 : -1).then(result => {
+                                resolve(result);
+                            }).catch(e => reject(e));
+                        }
+                        else {
+                            OctreeCSG.async.union(octrees[0], octrees[1]).then(result => {
+                                if (octrees.length === 3) {
+                                    OctreeCSG.async.union(result, octrees[2]).then(result => {
+                                        resolve(result);
+                                    }).catch(e => reject(e));
+                                }
+                                else {
+                                    resolve(result);
+                                }
+                            }).catch(e => reject(e));
+                        }
+                    }
+                    else {
+                        reject('Unable to find any result octree');
+                    }
+                });
+            }
+            catch (e) {
+                reject(e);
+            }
+        });
+    },
+    subtractArray: function (objArr, materialIndexMax = Infinity) {
+        return new Promise((resolve, reject) => {
+            try {
+                let usingBatches = OctreeCSG.async.batchSize > 4 && OctreeCSG.async.batchSize < objArr.length;
+                let mainOctree;
+                let mainOctreeUsed = false;
+                let promises = [];
+                if (usingBatches) {
+                    let batches = [];
+                    let currentIndex = 0;
+                    while (currentIndex < objArr.length) {
+                        batches.push(objArr.slice(currentIndex, currentIndex + OctreeCSG.async.batchSize));
+                        currentIndex += OctreeCSG.async.batchSize
+                    }
+
+                    let batch = batches.shift();
+                    while (batch) {
+                        let promise = OctreeCSG.async.subtractArray(batch, 0);
+                        promises.push(promise);
+                        batch = batches.shift();
+                    }
+                    usingBatches = true;
+                    mainOctreeUsed = true;
+                    objArr.length = 0;
+                }
+                else {
+                    let octreesArray = [];
+                    for (let i = 0; i < objArr.length; i++) {
+                        let materialIndex = i > materialIndexMax ? materialIndexMax : i;
+                        let tempOctree
+                        if (objArr[i].isMesh) {
+                            tempOctree = OctreeCSG.fromMesh(objArr[i], materialIndexMax > -1 ? materialIndex : undefined);
+                        }
+                        else {
+                            tempOctree = objArr[i];
+                            if (materialIndexMax > -1) {
+                                tempOctree.setPolygonIndex(materialIndex);
+                            }
+                        }
+                        tempOctree.octreeIndex = i;
+                        octreesArray.push(tempOctree);
+                    }
+                    mainOctree = octreesArray.shift();
+
+                    let result;
+                    let hasLeftOver = false;
+                    let leftOverOctree;
+                    for (let i = 0; i < octreesArray.length; i += 2) {
+                        if (i + 1 >= octreesArray.length) {
+                            leftOverOctree = octreesArray[i];
+                            hasLeftOver = true;
+                            break;
+                        }
+                        let promise = OctreeCSG.async.subtract(octreesArray[i], octreesArray[i + 1]);
+                        promises.push(promise);
+                    }
+                    if (leftOverOctree) {
+                        let promise = OctreeCSG.async.subtract(mainOctree, leftOverOctree);
+                        promises.push(promise);
+                        mainOctreeUsed = true;
+                    }
+                }
+                Promise.allSettled(promises).then(results => {
+                    let octrees = []
+                    results.forEach(r => {
+                        if (r.status === "fulfilled") {
+                            octrees.push(r.value);
+                        }
+                    });
+                    if (!mainOctreeUsed) {
+                        octrees.unshift(mainOctree);
+                    }
+                    if (octrees.length > 0) {
+                        if (octrees.length === 1) {
+                            resolve(octrees[0]);
+                        }
+                        else if (octrees.length > 3) {
+                            OctreeCSG.async.subtractArray(octrees, usingBatches ? 0 : -1).then(result => {
+                                resolve(result);
+                            }).catch(e => reject(e));
+                        }
+                        else {
+                            OctreeCSG.async.subtract(octrees[0], octrees[1]).then(result => {
+                                if (octrees.length === 3) {
+                                    OctreeCSG.async.subtract(result, octrees[2]).then(result => {
+                                        resolve(result);
+                                    }).catch(e => reject(e));
+                                }
+                                else {
+                                    resolve(result);
+                                }
+                            }).catch(e => reject(e));
+                        }
+                    }
+                    else {
+                        reject('Unable to find any result octree');
+                    }
+                });
+            }
+            catch (e) {
+                reject(e);
+            }
+        });
+    },
+    intersectArray: function (objArr, materialIndexMax = Infinity) {
+        return new Promise((resolve, reject) => {
+            try {
+                let usingBatches = OctreeCSG.async.batchSize > 4 && OctreeCSG.async.batchSize < objArr.length;
+                let mainOctree;
+                let mainOctreeUsed = false;
+                let promises = [];
+                if (usingBatches) {
+                    let batches = [];
+                    let currentIndex = 0;
+                    while (currentIndex < objArr.length) {
+                        batches.push(objArr.slice(currentIndex, currentIndex + OctreeCSG.async.batchSize));
+                        currentIndex += OctreeCSG.async.batchSize
+                    }
+
+                    let batch = batches.shift();
+                    while (batch) {
+                        let promise = OctreeCSG.async.intersectArray(batch, 0);
+                        promises.push(promise);
+                        batch = batches.shift();
+                    }
+                    usingBatches = true;
+                    mainOctreeUsed = true;
+                    objArr.length = 0;
+                }
+                else {
+                    let octreesArray = [];
+                    for (let i = 0; i < objArr.length; i++) {
+                        let materialIndex = i > materialIndexMax ? materialIndexMax : i;
+                        let tempOctree
+                        if (objArr[i].isMesh) {
+                            tempOctree = OctreeCSG.fromMesh(objArr[i], materialIndexMax > -1 ? materialIndex : undefined);
+                        }
+                        else {
+                            tempOctree = objArr[i];
+                            if (materialIndexMax > -1) {
+                                tempOctree.setPolygonIndex(materialIndex);
+                            }
+                        }
+                        tempOctree.octreeIndex = i;
+                        octreesArray.push(tempOctree);
+                    }
+                    mainOctree = octreesArray.shift();
+
+                    let result;
+                    let hasLeftOver = false;
+                    let leftOverOctree;
+                    for (let i = 0; i < octreesArray.length; i += 2) {
+                        if (i + 1 >= octreesArray.length) {
+                            leftOverOctree = octreesArray[i];
+                            hasLeftOver = true;
+                            break;
+                        }
+                        let promise = OctreeCSG.async.intersect(octreesArray[i], octreesArray[i + 1]);
+                        promises.push(promise);
+                    }
+                    if (leftOverOctree) {
+                        let promise = OctreeCSG.async.intersect(mainOctree, leftOverOctree);
+                        promises.push(promise);
+                        mainOctreeUsed = true;
+                    }
+                }
+                Promise.allSettled(promises).then(results => {
+                    let octrees = []
+                    results.forEach(r => {
+                        if (r.status === "fulfilled") {
+                            octrees.push(r.value);
+                        }
+                    });
+                    if (!mainOctreeUsed) {
+                        octrees.unshift(mainOctree);
+                    }
+                    if (octrees.length > 0) {
+                        if (octrees.length === 1) {
+                            resolve(octrees[0]);
+                        }
+                        else if (octrees.length > 3) {
+                            OctreeCSG.async.intersectArray(octrees, usingBatches ? 0 : -1).then(result => {
+                                resolve(result);
+                            }).catch(e => reject(e));
+                        }
+                        else {
+                            OctreeCSG.async.intersect(octrees[0], octrees[1]).then(result => {
+                                if (octrees.length === 3) {
+                                    OctreeCSG.async.intersect(result, octrees[2]).then(result => {
+                                        resolve(result);
+                                    }).catch(e => reject(e));
+                                }
+                                else {
+                                    resolve(result);
+                                }
+                            }).catch(e => reject(e));
+                        }
+                    }
+                    else {
+                        reject('Unable to find any result octree');
+                    }
+                });
+            }
+            catch (e) {
+                reject(e);
+            }
+        });
+    },
+    operation: function (obj, returnOctrees = false, buildTargetOctree = true, options = { objCounter: 0 }, firstRun = true) {
+        return new Promise((resolve, reject) => {
+            try {
+                let octreeA, octreeB, resultOctree, material;
+                if (obj.material) {
+                    material = obj.material;
+                }
+                let promises = []
+                if (obj.objA) {
+                    let promise = handleObjectForOp_async(obj.objA, returnOctrees, buildTargetOctree, options, 0);
+                    promises.push(promise);
+                    // octreeA = handleObjectForOp(obj.objA, returnOctrees, buildTargetOctree, options);
+                    // if (returnOctrees == true) {
+                    //     obj.objA = octreeA.original;
+                    //     octreeA = octreeA.result;
+                    // }
+                }
+                if (obj.objB) {
+                    let promise = handleObjectForOp_async(obj.objB, returnOctrees, buildTargetOctree, options, 1);
+                    promises.push(promise);
+                    // octreeB = handleObjectForOp(obj.objB, returnOctrees, buildTargetOctree, options);
+                    // if (returnOctrees == true) {
+                    //     obj.objB = octreeB.original;
+                    //     octreeB = octreeB.result;
+                    // }
+                }
+                Promise.allSettled(promises).then(results => {
+                    let octrees = []
+                    results.forEach(r => {
+                        if (r.status === "fulfilled") {
+                            if (r.value.objIndex === 0) {
+                                octreeA = r.value;
+                            }
+                            else if (r.value.objIndex === 1) {
+                                octreeB = r.value;
+                            }
+                            // octrees.push(r.value);
+                        }
+                    });
+
+                    if (returnOctrees == true) {
+                        obj.objA = octreeA.original;
+                        octreeA = octreeA.result;
+                        obj.objB = octreeB.original;
+                        octreeB = octreeB.result;
+                    }
+                    let resultPromise;
+                    switch (obj.op) {
+                        case 'union':
+                            resultPromise = OctreeCSG.async.union(octreeA, octreeB, buildTargetOctree);
+                            // resultOctree = OctreeCSG.union(octreeA, octreeB, buildTargetOctree);
+                            break;
+                        case 'subtract':
+                            resultPromise = OctreeCSG.async.subtract(octreeA, octreeB, buildTargetOctree);
+                            // resultOctree = OctreeCSG.subtract(octreeA, octreeB, buildTargetOctree);
+                            break;
+                        case 'intersect':
+                            resultPromise = OctreeCSG.async.intersect(octreeA, octreeB, buildTargetOctree);
+                            // resultOctree = OctreeCSG.intersect(octreeA, octreeB, buildTargetOctree);
+                            break;
+                    }
+                    resultPromise.then(resultOctree => {
+                        if (firstRun && material) {
+                            let mesh = OctreeCSG.toMesh(resultOctree, material);
+                            if (!returnOctrees) {
+                                disposeOctree(resultOctree);
+                            }
+                            resolve(returnOctrees ? { result: mesh, operationTree: obj } : mesh);
+                        }
+                        else if (firstRun && returnOctrees) {
+                            resolve({ result: resultOctree, operationTree: obj });
+                        }
+                        else {
+                            resolve(resultOctree);
+                        }
+                        if (!returnOctrees) {
+                            disposeOctree(octreeA, octreeB);
+                        }
+                    }).catch(e => reject(e));
+                });
+            }
+            catch (e) {
+                reject(e);
+            }
+        });
+    }
+}
+OctreeCSG.unionArray = function (objArr, materialIndexMax = Infinity) {
+    let octreesArray = [];
+    for (let i = 0; i < objArr.length; i++) {
+        let materialIndex = i > materialIndexMax ? materialIndexMax : i;
+        let tempOctree
+        if (objArr[i].isMesh) {
+            tempOctree = OctreeCSG.fromMesh(objArr[i], materialIndex);
+        }
+        else {
+            tempOctree = objArr[i];
+            tempOctree.setPolygonIndex(materialIndex);
+        }
+        tempOctree.octreeIndex = i;
+        octreesArray.push(tempOctree);
+    }
+    let octreeA = octreesArray.shift();
+    let octreeB = octreesArray.shift();
+    while (octreeA && octreeB) {
+        let resultOctree = OctreeCSG.union(octreeA, octreeB);
+        disposeOctree(octreeA, octreeB);
+        octreeA = resultOctree;
+        octreeB = octreesArray.shift();
+    }
+    return octreeA;
+}
+OctreeCSG.subtractArray = function (objArr, materialIndexMax = Infinity) {
+    let octreesArray = [];
+    for (let i = 0; i < objArr.length; i++) {
+        let materialIndex = i > materialIndexMax ? materialIndexMax : i;
+        let tempOctree
+        if (objArr[i].isMesh) {
+            tempOctree = OctreeCSG.fromMesh(objArr[i], materialIndex);
+        }
+        else {
+            tempOctree = objArr[i];
+            tempOctree.setPolygonIndex(materialIndex);
+        }
+        tempOctree.octreeIndex = i;
+        octreesArray.push(tempOctree);
+    }
+    let octreeA = octreesArray.shift();
+    let octreeB = octreesArray.shift();
+    while (octreeA && octreeB) {
+        let resultOctree = OctreeCSG.subtract(octreeA, octreeB);
+        disposeOctree(octreeA, octreeB);
+        octreeA = resultOctree;
+        octreeB = octreesArray.shift();
+    }
+    return octreeA;
+}
+OctreeCSG.intersectArray = function (objArr, materialIndexMax = Infinity) {
+    let octreesArray = [];
+    for (let i = 0; i < objArr.length; i++) {
+        let materialIndex = i > materialIndexMax ? materialIndexMax : i;
+        let tempOctree
+        if (objArr[i].isMesh) {
+            tempOctree = OctreeCSG.fromMesh(objArr[i], materialIndex);
+        }
+        else {
+            tempOctree = objArr[i];
+            tempOctree.setPolygonIndex(materialIndex);
+        }
+        tempOctree.octreeIndex = i;
+        octreesArray.push(tempOctree);
+    }
+    let octreeA = octreesArray.shift();
+    let octreeB = octreesArray.shift();
+    while (octreeA && octreeB) {
+        let resultOctree = OctreeCSG.intersect(octreeA, octreeB);
+        disposeOctree(octreeA, octreeB);
+        octreeA = resultOctree;
+        octreeB = octreesArray.shift();
+    }
+    return octreeA;
+}
+
 OctreeCSG.operation = function (obj, returnOctrees = false, buildTargetOctree = true, options = { objCounter: 0 }, firstRun = true) {
-    // console.log("OctreeCSG.operation", obj);
     let octreeA, octreeB, resultOctree, material;
     if (obj.material) {
         material = obj.material;
@@ -1976,8 +1712,12 @@ OctreeCSG.operation = function (obj, returnOctrees = false, buildTargetOctree = 
             resultOctree = OctreeCSG.intersect(octreeA, octreeB, buildTargetOctree);
             break;
     }
+    if (!returnOctrees) {
+        disposeOctree(octreeA, octreeB);
+    }
     if (firstRun && material) {
         let mesh = OctreeCSG.toMesh(resultOctree, material);
+        disposeOctree(resultOctree);
         return returnOctrees ? { result: mesh, operationTree: obj } : mesh;
     }
     if (firstRun && returnOctrees) {
@@ -1986,7 +1726,6 @@ OctreeCSG.operation = function (obj, returnOctrees = false, buildTargetOctree = 
     return resultOctree;
 }
 
-// Work in progress
 function handleObjectForOp(obj, returnOctrees, buildTargetOctree, options) {
     let returnObj;
     if (obj.isMesh) {
@@ -2011,104 +1750,49 @@ function handleObjectForOp(obj, returnOctrees, buildTargetOctree, options) {
     return returnObj;
 }
 
-/*
-// Work in progress
-OctreeCSG.unionArray = function (objArr, buildTargetOctree = true) {
-    // console.log("OctreeCSG.getRayPolys", OctreeCSG.getRayPolys);
-    // console.log("OctreeCSG.useOctreeRay", OctreeCSG.useOctreeRay);
-    // let polys = [];
-    let octrees = [];
-    for (let i = 0; i < objArr.length; i++) {
-        let tempOctree = OctreeCSG.fromMesh(objArr[i]);
-        tempOctree.octreeIndex = i;
-        octrees.push(tempOctree);
-    }
-    let octree = new OctreeCSG();
-
-
-
-
-    // let aPolygons = octreeA.getPolygons();
-    // let bPolygons = octreeB.getPolygons();
-    // let filterResults;
-    if (octreeA.box.intersectsBox(octreeB.box)) {
-        let trianglesSet = new Set();
-        let currentMeshSideA;
-        let currentMeshSideB;
-        if (octreeA.mesh) {
-            currentMeshSideA = octreeA.mesh.material.side;
-            octreeA.mesh.material.side = OctreeCSG.testSide;
-        }
-        if (octreeB.mesh) {
-            currentMeshSideB = octreeB.mesh.material.side;
-            octreeB.mesh.material.side = OctreeCSG.testSide;
-        }
-
-        octreeA.resetPolygons();
-        octreeB.resetPolygons();
-
-        octreeA.markIntesectingPolygons(octreeB);
-        octreeB.markIntesectingPolygons(octreeA);
-
-
-        handleIntersectingOctrees(octreeA, octreeB);
-
-        octreeA.deletePolygonsByStateRules([
-            {
-                array: true,
-                rule: ["inside", "coplanar-back"]
-            },
-            {
-                array: false,
-                rule: "inside"
+function handleObjectForOp_async(obj, returnOctrees, buildTargetOctree, options, objIndex) {
+    return new Promise((resolve, reject) => {
+        try {
+            let returnObj;
+            if (obj.isMesh) {
+                returnObj = OctreeCSG.fromMesh(obj, options.objCounter++);
+                if (returnOctrees) {
+                    returnObj = { result: returnObj, original: returnObj.clone() };
+                }
+                returnObj.objIndex = objIndex;
+                resolve(returnObj);
             }
-        ]);
-
-        // }
-
-        octreeB.deletePolygonsByStateRules([
-            {
-                array: true,
-                rule: ["inside", "coplanar-back"]
-            },
-            {
-                array: true,
-                rule: ["inside", "coplanar-front"]
-            },
-            {
-                array: false,
-                rule: "inside"
+            else if (obj.isOctree) {
+                returnObj = obj;
+                if (returnOctrees) {
+                    returnObj = { result: obj, original: obj.clone() };
+                }
+                returnObj.objIndex = objIndex;
+                resolve(returnObj);
             }
-        ]);
-
-        octreeA.getPolygonCloneCallback(octree.addPolygon.bind(octree));
-        octreeB.getPolygonCloneCallback(octree.addPolygon.bind(octree));
-
-
-        buildTargetOctree && octree.buildTree();
-        if (octreeA.mesh) {
-            if (octreeA.mesh.material.side !== currentMeshSideA) {
-                octreeA.mesh.material.side = currentMeshSideA;
+            else if (obj.op) {
+                OctreeCSG.async.operation(obj, returnOctrees, buildTargetOctree, options, false).then(returnObj => {
+                    if (returnOctrees) {
+                        returnObj = { result: returnObj, original: obj };
+                    }
+                    returnObj.objIndex = objIndex;
+                    resolve(returnObj);
+                });
+                // returnObj = OctreeCSG.operation(obj, returnOctrees, buildTargetOctree, options, false);
+                // if (returnOctrees) {
+                //     returnObj = { result: returnObj, original: obj };
+                // }
             }
+
+            
         }
-        if (octreeB.mesh) {
-            if (octreeB.mesh.material.side !== currentMeshSideB) {
-                octreeB.mesh.material.side = currentMeshSideB;
-            }
+        catch (e) {
+            reject(e);
         }
-
-    }
-    else {
-        octreeA.getPolygonCloneCallback(octree.addPolygon.bind(octree));
-        octreeB.getPolygonCloneCallback(octree.addPolygon.bind(octree));
-        buildTargetOctree && octree.buildTree();
-    }
-
-    return octree;
+    });
 }
-*/
 
-OctreeCSG.isUniqueTriangle = function (triangle, set, map) {
+function isUniqueTriangle(triangle, set, map) {
     const hash1 = `{${triangle.a.x},${triangle.a.y},${triangle.a.z}}-{${triangle.b.x},${triangle.b.y},${triangle.b.z}}-{${triangle.c.x},${triangle.c.y},${triangle.c.z}}`;
 
     if (set.has(hash1) === true) {
@@ -2156,15 +1840,10 @@ OctreeCSG.toGeometry = function (octree) {
 
     let triangleCount = 0;
     polygons.forEach(polygon => {
-        if (OctreeCSG.isUniqueTriangle(polygon.triangle, trianglesSet)) {
+        if (isUniqueTriangle(polygon.triangle, trianglesSet)) {
             triangleCount += (polygon.vertices.length - 2);
             validPolygons.push(polygon);
         }
-        // else {
-        //     duplicateCount++;
-        //     let a = triangleMap.get(polygon.triangle);
-        //     console.log("DUPLICATE!!", polygon.id == a.polygon.id);
-        // }
     });
     trianglesSet.clear();
     trianglesSet = undefined;
@@ -2236,23 +1915,21 @@ OctreeCSG.toGeometry = function (octree) {
         }
         geometry.setIndex(index);
     }
-    // console.log("duplicateCount", duplicateCount);
+
     return geometry;
 }
 
 OctreeCSG.toMesh = function (octree, toMaterial) {
     let geometry = OctreeCSG.toGeometry(octree);
-    // geometry = BufferGeometryUtils.mergeVertices(geometry);
-    // geometry = geometry.toNonIndexed();
     return new Mesh(geometry, toMaterial);
 }
 
-OctreeCSG.fromMesh = function (obj, objectIndex) {
-    let octree = new OctreeCSG();
-    octree.originalMatrixWorld = obj.matrixWorld.clone();
+OctreeCSG.fromMesh = function (obj, objectIndex, octree = new OctreeCSG(), buildTargetOctree = true, ) {
+    // let octree = new OctreeCSG();
+    if (OctreeCSG.rayIntersectTriangleType === "regular") {
+        octree.originalMatrixWorld = obj.matrixWorld.clone();
+    }
     obj.updateWorldMatrix(true, true);
-    // obj.updateMatrixWorld();
-    // obj.updateMatrix();
     let geometry = obj.geometry;
     tmpm3.getNormalMatrix(obj.matrix);
     let posattr = geometry.attributes.position;
@@ -2261,16 +1938,16 @@ OctreeCSG.fromMesh = function (obj, objectIndex) {
     let colorattr = geometry.attributes.color;
     let groups = geometry.groups;
     let index;
-    if (geometry.index)
+    if (geometry.index) {
         index = geometry.index.array;
+    }
     else {
         index = new Array((posattr.array.length / posattr.itemSize) | 0);
-        for (let i = 0; i < index.length; i++)
+        for (let i = 0; i < index.length; i++) {
             index[i] = i;
+        }
     }
-    // let triCount = (index.length / 3) | 0;
     let polys = [];
-    // polys = new Array(triCount)
     for (let i = 0, pli = 0, l = index.length; i < l; i += 3, pli++) {
         let vertices = [];
         for (let j = 0; j < 3; j++) {
@@ -2309,23 +1986,17 @@ OctreeCSG.fromMesh = function (obj, objectIndex) {
 
     for (let i = 0; i < polys.length; i++) {
         if (isValidTriangle(polys[i].triangle)) {
-            if (isNaN(polys[i].plane.normal.x)) {
-                console.warn("polygon", i, "is NaN!!!!");
-            }
-
             octree.addPolygon(polys[i]);
         }
         else {
-            // console.log("polygon", i, "has two points at same place", polys[i]);
             polys[i].delete();
         }
     }
-    // octree.addTriangle(newTriangle(v1, v2, v3));
 
-
-    octree.buildTree();
-    // return CSG.fromPolygons(polys.filter(p => !isNaN(p.plane.normal.x)));
-    octree.mesh = obj;
+    buildTargetOctree && octree.buildTree();
+    if (OctreeCSG.useOctreeRay !== true) {
+        octree.mesh = obj;
+    }
     return octree;
 
 };
@@ -2337,160 +2008,7 @@ function isValidTriangle(triangle) {
     return true;
 }
 
-// OctreeCSG.meshToBuffers = function (obj, objectIndex) {
-//     obj.updateWorldMatrix(true, true);
-//     // let octree = new OctreeCSG();
-//     let geometry = obj.geometry;
-//     tmpm3.getNormalMatrix(obj.matrix);
-//     let posattr = geometry.attributes.position;
-//     let normalattr = geometry.attributes.normal;
-//     let uvattr = geometry.attributes.uv;
-//     let colorattr = geometry.attributes.color;
-//     let groups = geometry.groups;
-//     let index;
-//     if (geometry.index)
-//         index = geometry.index.array;
-//     else {
-//         index = new Array((posattr.array.length / posattr.itemSize) | 0);
-//         for (let i = 0; i < index.length; i++)
-//             index[i] = i;
-//     }
-//     // let triCount = (index.length / 3) | 0;
-//     let polys = [];
-//     // polys = new Array(triCount)
-//     for (let i = 0, pli = 0, l = index.length; i < l; i += 3, pli++) {
-//         let vertices = [];
-//         for (let j = 0; j < 3; j++) {
-//             let vi = index[i + j]
-//             let vp = vi * 3;
-//             let vt = vi * 2;
-//             let pos = new Vector3(posattr.array[vp], posattr.array[vp + 1], posattr.array[vp + 2]);
-//             let normal = new Vector3(normalattr.array[vp], normalattr.array[vp + 1], normalattr.array[vp + 2]);
-//             pos.applyMatrix4(obj.matrix);
-//             normal.applyMatrix3(tmpm3);
-//             // v.applyMatrix4(obj.matrixWorld);
-//             // vertices.push(v);
-//             //     v2.applyMatrix4(obj.matrixWorld);
-//             //     v3.applyMatrix4(obj.matrixWorld);
-//             vertices.push(new Vertex(pos, normal, uvattr && { // uv
-//                 x: uvattr.array[vt],
-//                 y: uvattr.array[vt + 1]
-//             }, colorattr && { x: colorattr.array[vt], y: colorattr.array[vt + 1], z: colorattr.array[vt + 2] }));
-//         }
-//         if ((objectIndex === undefined) && groups && groups.length > 0) {
-//             let polygon;
-//             for (let group of groups) {
-//                 if ((index[i] >= group.start) && (index[i] < (group.start + group.count))) {
-//                     polygon = new Polygon(vertices, group.materialIndex);
-//                 }
-//             }
-//             if (polygon) {
-//                 polys.push(polygon);
-//             }
-
-//         }
-//         else {
-//             polys.push(new Polygon(vertices, objectIndex));
-//         }
-//     }
-//     return polys;
-//     // for (let i = 0; i < polys.length; i++) {
-//     //     octree.addPolygon(polys[i]);
-//     // }
-//     // // octree.addTriangle(newTriangle(v1, v2, v3));
-
-//     // octree.buildTree();
-//     // // return CSG.fromPolygons(polys.filter(p => !isNaN(p.plane.normal.x)));
-//     // return octree;
-
-// };
-
-OctreeCSG.meshToPolygons = function (obj, objectIndex) {
-    obj.updateWorldMatrix(true, true);
-    // let octree = new OctreeCSG();
-    let geometry = obj.geometry;
-    tmpm3.getNormalMatrix(obj.matrix);
-    let posattr = geometry.attributes.position;
-    let normalattr = geometry.attributes.normal;
-    let uvattr = geometry.attributes.uv;
-    let colorattr = geometry.attributes.color;
-    let groups = geometry.groups;
-    let index;
-    if (geometry.index)
-        index = geometry.index.array;
-    else {
-        index = new Array((posattr.array.length / posattr.itemSize) | 0);
-        for (let i = 0; i < index.length; i++)
-            index[i] = i;
-    }
-    // let triCount = (index.length / 3) | 0;
-    let polys = [];
-    // polys = new Array(triCount)
-    for (let i = 0, pli = 0, l = index.length; i < l; i += 3, pli++) {
-        let vertices = [];
-        for (let j = 0; j < 3; j++) {
-            let vi = index[i + j]
-            let vp = vi * 3;
-            let vt = vi * 2;
-            let pos = new Vector3(posattr.array[vp], posattr.array[vp + 1], posattr.array[vp + 2]);
-            let normal = new Vector3(normalattr.array[vp], normalattr.array[vp + 1], normalattr.array[vp + 2]);
-            pos.applyMatrix4(obj.matrix);
-            normal.applyMatrix3(tmpm3);
-            // v.applyMatrix4(obj.matrixWorld);
-            // vertices.push(v);
-            //     v2.applyMatrix4(obj.matrixWorld);
-            //     v3.applyMatrix4(obj.matrixWorld);
-            vertices.push(new Vertex(pos, normal, uvattr && { // uv
-                x: uvattr.array[vt],
-                y: uvattr.array[vt + 1]
-            }, colorattr && { x: colorattr.array[vt], y: colorattr.array[vt + 1], z: colorattr.array[vt + 2] }));
-        }
-        if ((objectIndex === undefined) && groups && groups.length > 0) {
-            let polygon;
-            for (let group of groups) {
-                if ((index[i] >= group.start) && (index[i] < (group.start + group.count))) {
-                    polygon = new Polygon(vertices, group.materialIndex);
-                    polygon.originalValid = true;
-                }
-            }
-            if (polygon) {
-                polys.push(polygon);
-            }
-
-        }
-        else {
-            let polygon = new Polygon(vertices, objectIndex);
-            polygon.originalValid = true;
-            polys.push(polygon);
-        }
-    }
-    return polys;
-    // for (let i = 0; i < polys.length; i++) {
-    //     octree.addPolygon(polys[i]);
-    // }
-    // // octree.addTriangle(newTriangle(v1, v2, v3));
-
-    // octree.buildTree();
-    // // return CSG.fromPolygons(polys.filter(p => !isNaN(p.plane.normal.x)));
-    // return octree;
-
-};
-
-
-
-
-
-
-// OctreeCSG.addPolygonToMap = function (map, polygon, value) {
-//     let mapValue = map.get(polygon) || [];
-//     mapValue.push(value);
-//     map.set(polygon, mapValue);
-// }
-
-
-
 // class Vertex
-
 class Vertex {
 
     constructor(pos, normal, uv, color) {
@@ -2524,12 +2042,10 @@ class Vertex {
 }
 
 // class Plane
-
 class Plane {
     constructor(normal, w) {
         this.normal = normal;
         this.w = w;
-        // this.constant;
     }
 
     clone() {
@@ -2551,10 +2067,6 @@ class Plane {
         }
         return false;
     }
-    // distanceToPoint(point) {
-    //     return this.normal.dot(point) - this.constant;
-    // }
-
 }
 
 Plane.fromPoints = function (a, b, c) {
@@ -2564,36 +2076,41 @@ Plane.fromPoints = function (a, b, c) {
 
 
 // class Polygon
-
 class Polygon {
     constructor(vertices, shared) {
+        this.id = _polygonID++;
         this.vertices = vertices.map(v => v.clone());
         this.shared = shared;
         this.plane = Plane.fromPoints(this.vertices[0].pos, this.vertices[1].pos, this.vertices[2].pos);
         this.triangle = new Triangle(this.vertices[0].pos, this.vertices[1].pos, this.vertices[2].pos);
-        this.triangle.midPoint = this.triangle.getMidpoint(new Vector3());
-
-        // this.triangle.polygon = this;
-        // this.plane.constant = this.plane.normal.dot(this.triangle.midPoint);
-        // this.box = new Box3();
-        // this.box.expandByPoint(this.triangle.a);
-        // this.box.expandByPoint(this.triangle.b);
-        // this.box.expandByPoint(this.triangle.c);
-        // this.box.expandByScalar(EPSILON);
-
-        // this.source = "new";
         this.intersects = false;
         this.state = "undecided";
         this.previousState = "undecided";
         this.previousStates = [];
         this.valid = true;
         this.coplanar = false;
-        // this.original = false;
         this.originalValid = false;
         this.newPolygon = false;
-        Object.defineProperty(this, 'id', {
-            value: _polygonID++
+    }
+    getMidpoint() {
+        if (this.triangle.midPoint) {
+            return this.triangle.midPoint;
+        }
+        this.triangle.midPoint = this.triangle.getMidpoint(new Vector3());
+        return this.triangle.midPoint;
+    }
+    applyMatrix(matrix, normalMatrix) {
+        normalMatrix = normalMatrix || tmpm3.getNormalMatrix(matrix);
+        this.vertices.forEach(v => {
+            v.pos.applyMatrix4(matrix);
+            v.normal.applyMatrix3(normalMatrix);
         });
+        this.plane.delete();
+        this.plane = Plane.fromPoints(this.vertices[0].pos, this.vertices[1].pos, this.vertices[2].pos);
+        this.triangle.set(this.vertices[0].pos, this.vertices[1].pos, this.vertices[2].pos);
+        if (this.triangle.midPoint) {
+            this.triangle.getMidpoint(this.triangle.midPoint);
+        }
     }
     reset(resetOriginal = true) {
         this.intersects = false;
@@ -2641,13 +2158,13 @@ class Polygon {
         polygon.newPolygon = this.newPolygon;
         polygon.previousState = this.previousState;
         polygon.previousStates = this.previousStates.slice();
+        if (this.triangle.midPoint) {
+            polygon.triangle.midPoint = this.triangle.midPoint.clone();
+        }
         return polygon;
     }
     flip() {
         this.vertices.reverse().forEach(v => v.flip());
-        // _v3.copy(this.triangle.a);
-        // this.triangle.a.copy(this.triangle.c);
-        // this.triangle.c.copy(_v3);
         let tmp = this.triangle.a;
         this.triangle.a = this.triangle.c;
         this.triangle.c = tmp;
@@ -2667,7 +2184,11 @@ class Polygon {
 }
 
 
-
+function disposeOctree(...octrees) {
+    if (OctreeCSG.disposeOctree) {
+        octrees.forEach(octree => octree.delete());
+    }
+}
 
 ////
 // Winding Number algorithm adapted from https://github.com/grame-cncm/faust/blob/master-dev/tools/physicalModeling/mesh2faust/vega/libraries/windingNumber/windingNumber.cpp
@@ -2686,53 +2207,6 @@ const _wP_EPS_ARR = [
 const _wP_EPS_ARR_COUNT = _wP_EPS_ARR.length;
 const _matrix3 = new Matrix3();
 const wNPI = 4 * Math.PI;
-
-/*
-// Replaced with buffer functions below
-function calcWindingNumber(polygons, point) {
-    let wN = 0;
-    for (let i = 0; i < polygons.length; i++) {
-        let pT = polygons[i].triangle;
-        _wV1.subVectors(pT.a, point);
-        _wV2.subVectors(pT.b, point);
-        _wV3.subVectors(pT.c, point);
-        let lenA = _wV1.length();
-        let lenB = _wV2.length();
-        let lenC = _wV3.length();
-        _matrix3.set(_wV1.x, _wV1.y, _wV1.z, _wV2.x, _wV2.y, _wV2.z, _wV3.x, _wV3.y, _wV3.z);
-        let omega = 2 * Math.atan2(_matrix3.determinant(), (lenA * lenB * lenC + _wV1.dot(_wV2) * lenC + _wV2.dot(_wV3) * lenA + _wV3.dot(_wV1) * lenB));
-        wN += omega;
-    }
-
-    wN = Math.round(wN / wNPI);
-    return wN;
-}
-function polyInside_WindingNumber(polygons, polygon, boundingBox) {
-    let result = false;
-    let point = polygon.triangle.midPoint;
-    _wP.copy(point);
-    let wN = calcWindingNumber(polygons, _wP);
-    if (wN === 0) {
-        if (polygon.coplanar) {
-            for (let j = 0; j < _wP_EPS_ARR_COUNT; j++) {
-                _wP.copy(point).add(_wP_EPS_ARR[j]);
-                wN = calcWindingNumber(polygons, _wP);
-                if (wN !== 0) {
-                    result = true;
-                    break;
-                }
-            }
-        }
-    }
-    else {
-        result = true;
-    }
-
-    return result;
-
-}
-*/
-
 
 function returnXYZ(arr, index) {
     return { x: arr[index], y: arr[index + 1], z: arr[index + 2] };
@@ -2779,293 +2253,27 @@ function polyInside_WindingNumber_buffer(trianglesArr, point, coplanar) {
 
 /////
 
-function handleIntersectingOctrees(octreeA, octreeB) {
+function handleIntersectingOctrees(octreeA, octreeB, bothOctrees = true) {
     let octreeA_buffer;
     let octreeB_buffer;
     if (OctreeCSG.useWindingNumber === true) {
-        octreeA_buffer = prepareTriangleBuffer(octreeA.getPolygons());
+        if (bothOctrees) {
+            octreeA_buffer = prepareTriangleBuffer(octreeA.getPolygons());
+        }
         octreeB_buffer = prepareTriangleBuffer(octreeB.getPolygons());
     }
     octreeA.handleIntersectingPolygons(octreeB, octreeB_buffer);
-    octreeB.handleIntersectingPolygons(octreeA, octreeA_buffer);
+    if (bothOctrees) {
+        octreeB.handleIntersectingPolygons(octreeA, octreeA_buffer);
+    }
     if (octreeA_buffer !== undefined) {
         octreeA_buffer = undefined;
         octreeB_buffer = undefined;
     }
 }
 
-OctreeCSG.subtract_async = async function (octreeA, octreeB, buildTargetOctree = true) {
-    return new Promise(async (resolve, reject) => {
-        try {
-            if (workerPool.length < OctreeCSG.maxWebWorkers) {
-                OctreeCSG.createWorkers();
-            }
-            let octree = new OctreeCSG();
-            if (octreeA.box.intersectsBox(octreeB.box)) {
-                let currentMeshSideA;
-                let currentMeshSideB;
-                if (octreeA.mesh) {
-                    currentMeshSideA = octreeA.mesh.material.side;
-                    octreeA.mesh.material.side = OctreeCSG.testSide;
-                }
-                if (octreeB.mesh) {
-                    currentMeshSideB = octreeB.mesh.material.side;
-                    octreeB.mesh.material.side = OctreeCSG.testSide;
-                }
-
-                octreeA.resetPolygons(false);
-                octreeB.resetPolygons(false);
-                octreeA.markIntesectingPolygons(octreeB);
-                octreeB.markIntesectingPolygons(octreeA);
-                let before = performance.now();
-                console.log("[OctreeCSG.subtract_async] before", performance.now());
-                // console.log("before sleep");
-                // await sleep(1000);
-                // console.log("after sleep");
-                await handleIntersectingOctrees_async(octreeA, octreeB);
-                console.log("[OctreeCSG.subtract_async] after", performance.now());
-                
-                octreeA.deleteReplacedPolygons();
-                octreeB.deleteReplacedPolygons();
-
-                octreeA.deletePolygonsByStateRules([
-                    {
-                        array: true,
-                        rule: ["inside", "coplanar-back"]
-                    },
-                    {
-                        array: true,
-                        rule: ["inside", "coplanar-front"]
-                    },
-                    {
-                        array: false,
-                        rule: "inside"
-                    }
-                ]);
-                octreeB.deletePolygonsByStateRules([
-                    {
-                        array: true,
-                        rule: ["outside", "coplanar-back"]
-                    },
-                    {
-                        array: true,
-                        rule: ["outside", "coplanar-front"]
-                    },
-                    {
-                        array: true,
-                        rule: ["inside", "coplanar-front"]
-                    },
-                    {
-                        array: false,
-                        rule: "outside"
-                    }
-                ]);
-
-
-                octreeB.deletePolygonsByIntersection(false);
-
-
-                octreeB.invert();
-
-                if (OctreeCSG.returnType == 0) {
-                    octreeA.getPolygonCloneCallback(octree.addPolygon.bind(octree));
-                    octreeB.getPolygonCloneCallback(octree.addPolygon.bind(octree));
-                }
-                else if (OctreeCSG.returnType == -1) {
-                    console.log("OctreeA");
-                    let polys_test = octreeA.getPolygons();
-                    let limit = Math.min(polys_test.length, 50000);
-                    console.log(`[octreeA] polys_test`, polys_test.length, limit);
-                    for (let i = 0; i < limit; i++) {
-                        if (polys_test[i].intersects) {
-                            let t = polys_test[i].triangle;
-                            // if (((t.a.y < -3) && (t.b.y < -3) && (t.c.y < -3))) {
-                            // if (((t.a.x >= 0.8) && (t.b.x >= 0.8) && (t.c.x >= 0.8))) {
-                            // console.log("AAAA", i, t, polys_test[i]);
-                            octree.addPolygon(polys_test[i]);
-                            // }
-                        }
-                        // else {
-                        // octree.addPolygon(polys_test[i]);
-                        // }
-                    }
-                }
-                else {
-                    console.log("OctreeB");
-                    let polys_test = octreeB.getPolygons();
-                    let limit = Math.min(polys_test.length, 50000);
-                    console.log(`[octreeB] polys_test`, polys_test.length, limit);
-                    for (let i = 0; i < limit; i++) {
-                        if (polys_test[i].intersects) {
-                            let t = polys_test[i].triangle;
-                            // if ((t.a.x <= 1) && (t.b.x <= 1) && (t.c.x <= 1)) {
-                            // if (((t.a.y === -5) && (t.b.y === -5) && (t.c.y === -5))) {
-                            //     console.log("BBBB", i, t, polys_test[i]);
-                            octree.addPolygon(polys_test[i]);
-                            // }
-                        }
-                        // else {
-                        // octree.addPolygon(polys_test[i]);
-                        // }
-                    }
-                }
-
-                if (octreeA.mesh) {
-                    if (octreeA.mesh.material.side !== currentMeshSideA) {
-                        octreeA.mesh.material.side = currentMeshSideA;
-                    }
-                }
-                if (octreeB.mesh) {
-                    if (octreeB.mesh.material.side !== currentMeshSideB) {
-                        octreeB.mesh.material.side = currentMeshSideB;
-                    }
-                }
-            }
-            else {
-                octreeA.getPolygonCloneCallback(octree.addPolygon.bind(octree));
-            }
-
-            buildTargetOctree && octree.buildTree();
-            // octree.invert();
-            resolve(octree);
-        }
-        catch (e) {
-            reject(e);
-        }
-    });
-}
-
-async function handleIntersectingOctrees_async(octreeA, octreeB) {
-    return new Promise(async (resolve, reject) => {
-        try {
-            const original_useWindingNumber = OctreeCSG.useWindingNumber;
-            OctreeCSG.useWindingNumber = true;
-            let octreeA_clone = octreeA.clone();
-            // let octreeA_polygons;
-            // let octreeB_polygons;
-            let octreeA_buffer;
-            let octreeB_buffer;
-            if (OctreeCSG.useWindingNumber === true) {
-                octreeA_buffer = prepareTriangleBuffer(octreeA_clone.getPolygons());
-                octreeB_buffer = prepareTriangleBuffer(octreeB.getPolygons());
-            }
-            // console.log("[handleIntersectingOctrees_async] before");
-            // await octreeA.handleIntersectingPolygons_async(octreeB, octreeB_buffer);
-            octreeA.handleIntersectingPolygons_reduced(octreeB, octreeB_buffer);
-            // console.log("[handleIntersectingOctrees_async] before 2");
-            await handleInsideOutsidePolygons_async(octreeA, octreeB, octreeB_buffer);
-            // console.log("[handleIntersectingOctrees_async] before 3");
-            // await octreeB.handleIntersectingPolygons_async(octreeA_clone, octreeA_buffer);
-            octreeB.handleIntersectingPolygons_reduced(octreeA_clone, octreeA_buffer);
-            // console.log("[handleIntersectingOctrees_async] before 4");
-            await handleInsideOutsidePolygons_async(octreeB, octreeA_clone, octreeA_buffer);
-            // console.log("[handleIntersectingOctrees_async] after");
-            octreeA_clone.delete();
-            octreeA_clone = undefined;
-
-            if (octreeA_buffer !== undefined) {
-                octreeA_buffer = undefined;
-                octreeB_buffer = undefined;
-            }
-            OctreeCSG.useWindingNumber = original_useWindingNumber;
-            resolve();
-        }
-        catch (e) {
-            reject(e)
-        }
-    });
-}
-
-async function handleInsideOutsidePolygons_async(octree, targetOctree, targetOctreeBuffer) {
-    return new Promise(async (resolve, reject) => {
-        try {
-            // polygonStack = this.polygons.filter(polygon => (polygon.valid == true) && (polygon.intersects == true));
-            let polygonStack = octree.getIntersectingPolygons();
-            let runningWebWorkers = [];
-            let currentPolygon = polygonStack.pop();
-            while (currentPolygon) {
-                // console.warn("Checking loop polygon id", currentPolygon.id);
-                if (!currentPolygon.valid) {
-                    continue;
-                }
-
-                let debugPoly = false;
-
-                // let testTriangle = new THREE.Triangle(new THREE.Vector3(0.29171404242515564, -4.110300540924072, 2.832019329071045), new THREE.Vector3(-0.29171404242515564, -4.110300540924072, 2.832019329071045), new THREE.Vector3(0, -4.3809967041015625, 2.4097442626953125));
-                // if ((OctreeCSG.returnType == -1) && (currentPolygon.triangle.equals(testTriangle))) {
-                //     debugPoly = true;
-                //     console.warn("STARTING DEBUG");
-                // }
-                OctreeCSG.debugPoly = debugPoly;
-                let inside = false;
-                if (targetOctree.box.containsPoint(currentPolygon.triangle.midPoint)) {
-                    // if (OctreeCSG.useWindingNumber === true) {
-                    // let responses = [];
-                    // // let result1 = OctreeCSG.testWorker(1);
-                    // // let result2 = OctreeCSG.testWorker(2);
-                    let worker = getAvailableWorker();
-                    while (!worker) {
-                        // console.log("Waiting for worker");
-                        await sleep(1);
-                        worker = getAvailableWorker();
-                    }
-
-                    worker.checkWindingNumber({
-                        type: 'windingNumber',
-                        point: currentPolygon.triangle.midPoint,
-                        coplanar: currentPolygon.coplanar,
-                        polygonID: currentPolygon.id,
-                        triangles: targetOctreeBuffer
-                    }, currentPolygon).then(worker => {
-                        // console.log("Worker finished", worker.id);
-                        let workerIndex = runningWebWorkers.indexOf(worker);
-                        if (workerIndex > -1) {
-                            runningWebWorkers.splice(workerIndex, 1);
-                        }
-                    });
-                    runningWebWorkers.push(worker);
-
-                }
-                else {
-                    currentPolygon.setState("outside");
-                }
-
-                // if (debugPoly) {
-                //     console.log("CHECK INSIDE", inside);
-                // }
-                // if (inside === true) {
-                //     currentPolygon.setState("inside");
-                // }
-                // else {
-                //     currentPolygon.setState("outside");
-                // }
-
-                currentPolygon = polygonStack.pop();
-            }
-            // console.log("START WAITING", runningWebWorkers.length);
-            while (runningWebWorkers.length) {
-                // console.log("Waiting to finish");
-                await sleep(1);
-            }
-            resolve();
-        }
-        catch (e) {
-            reject(e);
-        }
-    });
-}
-
-// OctreeCSG.prepareTriangleBuffer = function (polygons) {
-//     return prepareTriangleBuffer(polygons);
-// }
-
-// {message: data, data: buff}
-// OctreeCSG.runWorker = async function (data, transferables) {
-
 function prepareTriangleBuffer(polygons) {
     let numOfTriangles = polygons.length;
-    // let buffer = new ArrayBuffer(numOfTriangles * 3 * 3 * 4);
-    // let array = new Float32Array(buffer);
     let array = new Float32Array(numOfTriangles * 3 * 3);
     let bufferIndex = 0;
     for (let i = 0; i < numOfTriangles; i++) {
@@ -3080,251 +2288,9 @@ function prepareTriangleBuffer(polygons) {
         array[bufferIndex++] = triangle.c.y;
         array[bufferIndex++] = triangle.c.z;
     }
-    // return buffer;
+
     return array;
 }
-OctreeCSG.prepareTriangleBuffer = prepareTriangleBuffer;
-const workerPool = [];
-OctreeCSG.useWebWorkers = false;
-OctreeCSG.useWebWorkersSync = true;
-OctreeCSG.maxWebWorkers = navigator.hardwareConcurrency || 4;
-OctreeCSG.createWorkers = function () {
-    let max = OctreeCSG.maxWebWorkers - workerPool.length;
-    for (let i = 0; i < max; i++) {
-        OctreeCSG.createWorker();
-    }
-}
-OctreeCSG.getWorkerPool = function () { // FOR TESTING ONLY - WILL BE DELETED BEFORE PROD
-    return workerPool;
-}
-function getAvailableWorker() {
-    for (let i = 0; i < workerPool.length; i++) {
-        if (!workerPool[i].running) {
-            return workerPool[i];
-        }
-    }
-    return;
-}
-OctreeCSG.createWorker = function () {
-    let worker = new GenerateWebWorker();
-    workerPool.push(worker);
-    return worker;
-}
-OctreeCSG.testWorker2 = function (data) {
-    console.log("OctreeCSG.testWorker2");
-    let result = OctreeCSG.testWorker4(data);
-    console.log("OctreeCSG.testWorker2", result);
-    return result;
-    // // let worker = new Worker('./js/OctreeCSG/OctreeCSG.worker.js');
-    // let worker = new Worker(new URL('./OctreeCSG.worker.js', import.meta.url), { type: 'module' });
-    // worker.onerror = (e) => {
-    //     console.log(e);
-    // }
-    // worker.onmessage = (e) => {
-    //     console.log("INC DATA:", e.data);
-    // }
-    // worker.postMessage("A");
-
-}
-OctreeCSG.testWorker4 = function (data) {
-    console.log("OctreeCSG.testWorker4");
-    let result = OctreeCSG.testWorker3(data);
-    console.log("OctreeCSG.testWorker4", result);
-    return result;
-}
-async function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-}
-OctreeCSG.testWorker3 = async function (data) {
-    console.log("OctreeCSG.testWorker3");
-    let responses = [];
-    // let result1 = OctreeCSG.testWorker(1);
-    // let result2 = OctreeCSG.testWorker(2);
-    let worker = getAvailableWorker();
-    if (!worker) {
-        console.warn("no available workers");
-        return;
-    }
-    console.log("testing worker");
-    worker.sendMessage(data).then(data => responses.push(data));
-    let worker2 = getAvailableWorker();
-    if (!worker2) {
-        console.warn("no available workers");
-        return;
-    }
-    console.log("testing worker 2");
-    worker2.sendMessage(data).then(data => responses.push(data));
-    while (responses.length < 2) {
-        console.log("responses not received", responses.length, performance.now());
-        await sleep(500);
-    }
-    console.log("got response:", responses);
-    return responses;
-}
-// OctreeCSG.sendToWorker = async function (data) {
-OctreeCSG.testWorker = async function (data) {
-    console.log("OctreeCSG.testWorker");
-    let worker = getAvailableWorker();
-    if (!worker) {
-        console.warn("no available workers");
-        return;
-    }
-    console.log("testing worker");
-    let result = await worker.sendMessage(data);
-    console.log("got response:", result);
-    // worker.sendMessage(data).then(workerCB, (msg) => {
-    //     console.log("ERR", msg);
-    // });
-    return result;
-}
-OctreeCSG.runWorker = async function (data, transferables) {
-    let worker = getAvailableWorker();
-    if (!worker) {
-        console.warn("no available workers");
-        return;
-    }
-    // console.log("testing worker");
-    let result = await worker.sendMessage(data, transferables);
-    // console.log("got response:", result);
-    // worker.sendMessage(data).then(workerCB, (msg) => {
-    //     console.log("ERR", msg);
-    // });
-    return result;
-}
-function workerCB() {
-    console.log("CALLBACK", arguments);
-}
-
-let webWorker_ID = 0;
-class GenerateWebWorker {
-    constructor() {
-        this.running = false;
-        this.worker = new Worker(new URL('./OctreeCSG.worker.js', import.meta.url), { type: 'module' });
-        this.worker.onerror = (e) => {
-            if (e.message) {
-                throw new Error(`[OctreeCSG] GenerateWebWorker: Could not create a web worker with the error "${e.message}"`);
-            }
-            else {
-                throw new Error(`[OctreeCSG] GenerateWebWorker: Could not create a web worker, no error message was provided.`);
-            }
-        }
-        this.id = webWorker_ID++;
-    }
-    checkWindingNumber(data, currentPolygon) {
-        // worker.checkWindingNumber({
-        //     type: windingNumber,
-        //     point: currentPolygon.triangle.midPoint,
-        //     coplanar: currentPolygon.coplanar,
-        //     polygonID: currentPolygon.id,
-        //     triangles: targetOctreeBuffer
-        // }, currentPolygon)
-        if (this.running) {
-            throw new Error(`[GenerateWebWorker] checkWindingNumber: Worker is already running`);
-        }
-        if (this.worker === null) {
-            throw new Error(`[GenerateWebWorker] checkWindingNumber: Worker has beein disposed`);
-        }
-        this.running = true;
-        const { worker } = this;
-        return new Promise((resolve, reject) => {
-            try {
-                worker.onerror = (e) => {
-                    reject(new Error(`[GenerateWebWorker] checkWindingNumber: ${e.message}`));
-                    this.running = false;
-                    worker.onmessage = null;
-                }
-                worker.onmessage = (e) => {
-                    const { data } = e;
-                    if (data.error) {
-                        reject(new Error(data.error));
-                        worker.onmessage = null;
-                    }
-                    if ((data.type === 'windingNumber') && currentPolygon) {
-                        if (data.result === true) {
-                            currentPolygon.setState("inside");
-                        }
-                        else {
-                            currentPolygon.setState("outside");
-                        }
-                        resolve(this);
-                    }
-                    else {
-                        resolve(data);
-                    }
-                    this.running = false;
-                    worker.onmessage = null;
-                }
-                // console.log("GOT HERE?", worker);
-                // let numOfObjects = 1;
-                // let buff = new ArrayBuffer(numOfObjects * 4);
-                // let test = new Float32Array(buff);
-                // test[0] = 7;
-                // {message: data, data: buff}
-                worker.postMessage(data);
-            }
-            catch (e) {
-                reject(e);
-                worker.onmessage = null;
-            }
-
-        });
-    }
-    sendMessage(data, transferables, currentPolygon) {
-        if (this.running) {
-            throw new Error(`[GenerateWebWorker] sendMessage: Worker is already running`);
-        }
-        if (this.worker === null) {
-            throw new Error(`[GenerateWebWorker] sendMessage: Worker has beein disposed`);
-        }
-        this.running = true;
-        const { worker } = this;
-        return new Promise((resolve, reject) => {
-            try {
-                worker.onerror = (e) => {
-                    reject(new Error(`[GenerateWebWorker] sendMessage: ${e.message}`));
-                    // reject(e);
-                    this.running = false;
-                    worker.onmessage = null;
-                }
-                worker.onmessage = (e) => {
-                    // console.log("INC DATA:", e);
-                    const { data } = e;
-                    if (data.error) {
-                        reject(new Error(data.error));
-                        worker.onmessage = null;
-                    }
-                    resolve(data);
-                    this.running = false;
-                    worker.onmessage = null;
-                }
-                // console.log("GOT HERE?", worker);
-                // let numOfObjects = 1;
-                // let buff = new ArrayBuffer(numOfObjects * 4);
-                // let test = new Float32Array(buff);
-                // test[0] = 7;
-                // {message: data, data: buff}
-                worker.postMessage(data, transferables);
-            }
-            catch (e) {
-                reject(e);
-                worker.onmessage = null;
-            }
-
-        });
-    }
-    dispose() {
-        if (this.worker) {
-            this.worker.terminate();
-            this.worker = undefined;
-            let workerIndex = workerPool.indexOf(this);
-            if (workerIndex > -1) {
-                workerPool.splice(workerIndex, 1);
-            }
-        }
-    }
-}
-
-
 
 ////////
 // https://en.wikipedia.org/wiki/M%C3%B6ller%E2%80%93Trumbore_intersection_algorithm
@@ -3333,15 +2299,13 @@ const edge2 = new Vector3();
 const h = new Vector3();
 const s = new Vector3();
 const q = new Vector3();
+const RAY_EPSILON = 0.0000001;
 function rayIntersectsTriangle(ray, triangle, target = new Vector3()) {
-
-
-    const EPSILON = 0.0000001;
     edge1.subVectors(triangle.b, triangle.a);
     edge2.subVectors(triangle.c, triangle.a);
     h.crossVectors(ray.direction, edge2);
     let a = edge1.dot(h);
-    if (a > -EPSILON && a < EPSILON) {
+    if (a > -RAY_EPSILON && a < RAY_EPSILON) {
         return null; // Ray is parallel to the triangle
     }
     let f = 1 / a;
@@ -3357,7 +2321,7 @@ function rayIntersectsTriangle(ray, triangle, target = new Vector3()) {
     }
     // Check where intersection is
     let t = f * edge2.dot(q);
-    if (t > EPSILON) {
+    if (t > RAY_EPSILON) {
         return target.copy(ray.direction).multiplyScalar(t).add(ray.origin);
     }
     // else {
@@ -3366,24 +2330,12 @@ function rayIntersectsTriangle(ray, triangle, target = new Vector3()) {
 }
 OctreeCSG.rayIntersectsTriangle = rayIntersectsTriangle;
 ////////
-OctreeCSG.returnType = 0;
 
-OctreeCSG.testSide = DoubleSide;
 OctreeCSG.useOctreeRay = true;
-OctreeCSG.getRayPolys = true;
 OctreeCSG.useWindingNumber = false;
 OctreeCSG.rayIntersectTriangleType = "MollerTrumbore"; // "regular" (three.js' ray.intersectTriangle; "MollerTrumbore" (Moller Trumbore algorithm);
-
-
-OctreeCSG.debugPoly = false;
-
-////
-
-
-
-// TODO: test max level 10 and (min) polys per tree 100 or 200
 OctreeCSG.maxLevel = 16;
 OctreeCSG.polygonsPerTree = 100;
-
-OctreeCSG.Polygon = Polygon;
+// OctreeCSG.Octree = Octree;
 export default OctreeCSG;
+export { OctreeCSG as CSG, OctreeCSG, Polygon, Plane, Vertex, rayIntersectsTriangle };

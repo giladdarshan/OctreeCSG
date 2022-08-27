@@ -27,7 +27,7 @@ All the code examples below can be tested live in [3dd.dev](https://3dd.dev)
 ## Usage
 OctreeCSG comes as a Javascript Module and can be imported with the following command:
 ```js
-import OctreeCSG from './OctreeCSG.js';
+import OctreeCSG from './OctreeCSG/OctreeCSG.js';
 ```
 <br/>
 

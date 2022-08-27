@@ -87,7 +87,7 @@ class OctreeCSG {
 
         return this;
     }
-    
+
     newOctree(box, parent) {
         return new this.constructor(box, parent);
     }
@@ -1788,7 +1788,7 @@ function handleObjectForOp_async(obj, returnOctrees, buildTargetOctree, options,
                 // }
             }
 
-            
+
         }
         catch (e) {
             reject(e);
@@ -1928,7 +1928,10 @@ OctreeCSG.toMesh = function (octree, toMaterial) {
     return new Mesh(geometry, toMaterial);
 }
 
-OctreeCSG.fromMesh = function (obj, objectIndex, octree = new OctreeCSG(), buildTargetOctree = true, ) {
+OctreeCSG.fromMesh = function (obj, objectIndex, octree = new OctreeCSG(), buildTargetOctree = true) {
+    if (obj.isOctree) {
+        return obj;
+    }
     // let octree = new OctreeCSG();
     if (OctreeCSG.rayIntersectTriangleType === "regular") {
         octree.originalMatrixWorld = obj.matrixWorld.clone();

@@ -58,11 +58,14 @@ class OctreeCSG {
     isEmpty() {
         return this.polygons.length === 0;
     }
-    addPolygon(polygon) {
+    addPolygon(polygon, trianglesSet) {
         if (!this.bounds) {
             this.bounds = new Box3();
         }
         let triangle = polygon.triangle;
+        if (trianglesSet && !isUniqueTriangle(triangle, trianglesSet)) {
+            return this;
+        }
         this.bounds.min.x = Math.min(this.bounds.min.x, triangle.a.x, triangle.b.x, triangle.c.x);
         this.bounds.min.y = Math.min(this.bounds.min.y, triangle.a.y, triangle.b.y, triangle.c.y);
         this.bounds.min.z = Math.min(this.bounds.min.z, triangle.a.z, triangle.b.z, triangle.c.z);
@@ -610,16 +613,16 @@ class OctreeCSG {
         this.parent = undefined;
         this.level = undefined;
     }
-    getPolygonCloneCallback(cbFunc) {
+    getPolygonCloneCallback(cbFunc, trianglesSet) {
         if (this.polygons.length > 0) {
             for (let i = 0; i < this.polygons.length; i++) {
                 if (this.polygons[i].valid) {
-                    cbFunc(this.polygons[i].clone());
+                    cbFunc(this.polygons[i].clone(), trianglesSet);
                 }
             }
         }
         for (let i = 0; i < this.subTrees.length; i++) {
-            this.subTrees[i].getPolygonCloneCallback(cbFunc);
+            this.subTrees[i].getPolygonCloneCallback(cbFunc, trianglesSet);
         }
     }
     deleteReplacedPolygons() {
@@ -925,7 +928,7 @@ Union:
 */
 OctreeCSG.union = function (octreeA, octreeB, buildTargetOctree = true) {
     let octree = new OctreeCSG();
-
+    let trianglesSet = new Set();
     if (octreeA.box.intersectsBox(octreeB.box)) {
         let currentMeshSideA;
         let currentMeshSideB;
@@ -954,11 +957,9 @@ OctreeCSG.union = function (octreeA, octreeB, buildTargetOctree = true) {
         octreeB.deletePolygonsByStateRules(CSG_Rules.union.b);
 
 
-        octreeA.getPolygonCloneCallback(octree.addPolygon.bind(octree));
-        octreeB.getPolygonCloneCallback(octree.addPolygon.bind(octree));
+        octreeA.getPolygonCloneCallback(octree.addPolygon.bind(octree), trianglesSet);
+        octreeB.getPolygonCloneCallback(octree.addPolygon.bind(octree), trianglesSet);
 
-        octree.markPolygonsAsOriginal();
-        buildTargetOctree && octree.buildTree();
         if (octreeA.mesh) {
             if (octreeA.mesh.material.side !== currentMeshSideA) {
                 octreeA.mesh.material.side = currentMeshSideA;
@@ -972,11 +973,15 @@ OctreeCSG.union = function (octreeA, octreeB, buildTargetOctree = true) {
 
     }
     else {
-        octreeA.getPolygonCloneCallback(octree.addPolygon.bind(octree));
-        octreeB.getPolygonCloneCallback(octree.addPolygon.bind(octree));
-        octree.markPolygonsAsOriginal();
-        buildTargetOctree && octree.buildTree();
+        octreeA.getPolygonCloneCallback(octree.addPolygon.bind(octree), trianglesSet);
+        octreeB.getPolygonCloneCallback(octree.addPolygon.bind(octree), trianglesSet);
     }
+    
+    trianglesSet.clear();
+    trianglesSet = undefined;
+
+    octree.markPolygonsAsOriginal();
+    buildTargetOctree && octree.buildTree();
 
     return octree;
 }
@@ -995,6 +1000,7 @@ Subtract:
 */
 OctreeCSG.subtract = function (octreeA, octreeB, buildTargetOctree = true) {
     let octree = new OctreeCSG();
+    let trianglesSet = new Set();
     if (octreeA.box.intersectsBox(octreeB.box)) {
         let currentMeshSideA;
         let currentMeshSideB;
@@ -1025,8 +1031,8 @@ OctreeCSG.subtract = function (octreeA, octreeB, buildTargetOctree = true) {
 
         octreeB.invert();
 
-        octreeA.getPolygonCloneCallback(octree.addPolygon.bind(octree));
-        octreeB.getPolygonCloneCallback(octree.addPolygon.bind(octree));
+        octreeA.getPolygonCloneCallback(octree.addPolygon.bind(octree), trianglesSet);
+        octreeB.getPolygonCloneCallback(octree.addPolygon.bind(octree), trianglesSet);
 
 
         if (octreeA.mesh) {
@@ -1041,8 +1047,12 @@ OctreeCSG.subtract = function (octreeA, octreeB, buildTargetOctree = true) {
         }
     }
     else {
-        octreeA.getPolygonCloneCallback(octree.addPolygon.bind(octree));
+        octreeA.getPolygonCloneCallback(octree.addPolygon.bind(octree), trianglesSet);
     }
+
+    trianglesSet.clear();
+    trianglesSet = undefined;
+
     octree.markPolygonsAsOriginal();
     buildTargetOctree && octree.buildTree();
     // octree.invert();
@@ -1065,6 +1075,8 @@ Intersect:
 */
 OctreeCSG.intersect = function (octreeA, octreeB, buildTargetOctree = true) {
     let octree = new OctreeCSG();
+    let trianglesSet = new Set();
+
     if (octreeA.box.intersectsBox(octreeB.box)) {
         let currentMeshSideA;
         let currentMeshSideB;
@@ -1093,8 +1105,8 @@ OctreeCSG.intersect = function (octreeA, octreeB, buildTargetOctree = true) {
         octreeA.deletePolygonsByIntersection(false);
         octreeB.deletePolygonsByIntersection(false);
 
-        octreeA.getPolygonCloneCallback(octree.addPolygon.bind(octree));
-        octreeB.getPolygonCloneCallback(octree.addPolygon.bind(octree));
+        octreeA.getPolygonCloneCallback(octree.addPolygon.bind(octree), trianglesSet);
+        octreeB.getPolygonCloneCallback(octree.addPolygon.bind(octree), trianglesSet);
 
         if (octreeA.mesh) {
             if (octreeA.mesh.material.side !== currentMeshSideA) {
@@ -1107,6 +1119,8 @@ OctreeCSG.intersect = function (octreeA, octreeB, buildTargetOctree = true) {
             }
         }
     }
+    trianglesSet.clear();
+    trianglesSet = undefined;
 
     octree.markPolygonsAsOriginal();
     buildTargetOctree && octree.buildTree();
@@ -1838,19 +1852,21 @@ const ttvv0 = new Vector3()
 
 OctreeCSG.toGeometry = function (octree) {
     let polygons = octree.getPolygons();
-    let validPolygons = [];
-    let trianglesSet = new Set();
-    let duplicateCount = 0;
+    let triangleCount = polygons.length;
+    // let validPolygons = [];
+    // let trianglesSet = new Set();
+    // let duplicateCount = 0;
 
-    let triangleCount = 0;
-    polygons.forEach(polygon => {
-        if (isUniqueTriangle(polygon.triangle, trianglesSet)) {
-            triangleCount += (polygon.vertices.length - 2);
-            validPolygons.push(polygon);
-        }
-    });
-    trianglesSet.clear();
-    trianglesSet = undefined;
+    // let triangleCount = 0;
+    // polygons.forEach(polygon => {
+    //     if (isUniqueTriangle(polygon.triangle, trianglesSet)) {
+    //         triangleCount += (polygon.vertices.length - 2);
+    //         validPolygons.push(polygon);
+    //     }
+    // });
+
+    // trianglesSet.clear();
+    // trianglesSet = undefined;
 
     let positions = nbuf3(triangleCount * 3 * 3);
     let normals = nbuf3(triangleCount * 3 * 3);
@@ -1859,7 +1875,7 @@ OctreeCSG.toGeometry = function (octree) {
     let groups = [];
     let defaultGroup = [];
 
-    validPolygons.forEach(polygon => {
+    polygons.forEach(polygon => {
         let vertices = polygon.vertices;
         let verticesLen = vertices.length;
         if (polygon.shared !== undefined) {

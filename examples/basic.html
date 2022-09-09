@@ -98,7 +98,9 @@
         const exporterSTL = new STLExporter();
         const transformControls = new TransformControls(camera, renderer.domElement);
         const pointer = new THREE.Vector2(Infinity, Infinity);
-
+        const runtimeStat = document.getElementById("runtimeStat");
+        const trianglesStat = document.getElementById("trianglesStat");
+        let startTime, deltaTime, objectMoved = false, mouseClicked = false;
         const newMatrix = new THREE.Matrix4();
         function calcTransformMatrix(original, target) {
             newMatrix.elements[12] = target.elements[12] - original.elements[12];
@@ -121,12 +123,30 @@
             saveLink.click();
             document.body.removeChild(saveLink);
         }
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+
+        document.addEventListener('mousedown', () => {
+            mouseClicked = true;
+        });
+
+        document.addEventListener('mouseup', () => {
+            mouseClicked = false;
+        });
+
+        document.body.addEventListener('mousemove', event => {
+            pointer.x = (event.clientX / window.innerWidth) * 2 - 1;
+            pointer.y = - (event.clientY / window.innerHeight) * 2 + 1;
+        });
+
+        window.addEventListener('resize', onWindowResize);
+
 
         // Start
-        const runtimeStat = document.getElementById("runtimeStat");
-        const trianglesStat = document.getElementById("trianglesStat");
-        let startTime, deltaTime;
-        let objectMoved = false;
         const csgOperations = ["Union", "Subtract", "Intersect"];
         const geometries = {
             Box: new THREE.BoxGeometry(5, 5, 5),
@@ -225,38 +245,13 @@
         const object2Octree = OctreeCSG.fromMesh(object2_bg);
         object2Octree.setPolygonIndex(1);
 
-
-
         scene.add(object1_bg, object2_bg);
         transformControls.attach(object2_bg);
         scene.add(transformControls);
         scene.add(resultObject);
 
         let originalMatrix = object2_bg.matrix.clone();
-
         let firstCSG = true;
-        let mouseClicked = false;
-        container.addEventListener('mousedown', () => {
-            mouseClicked = true;
-        });
-
-        document.addEventListener('mouseup', () => {
-            mouseClicked = false;
-        });
-
-        document.body.addEventListener('mousemove', event => {
-            pointer.x = (event.clientX / window.innerWidth) * 2 - 1;
-            pointer.y = - (event.clientY / window.innerHeight) * 2 + 1;
-        });
-
-        window.addEventListener('resize', onWindowResize);
-
-        function onWindowResize() {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        }
-
         let isRendering = false;
 
         trianglesStat.innerText = `${object1Octree.getPolygons().length}`;

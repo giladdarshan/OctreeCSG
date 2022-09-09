@@ -1,0 +1,301 @@
+<html lang="en">
+
+<head>
+    <title>OctreeCSG Example - Basic</title>
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <style>
+        body {
+            margin: 0;
+            background-color: #000;
+            color: #fff;
+        }
+
+        #stats {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            display: flex;
+            flex-direction: column;
+            background-color: #000;
+            color: #fff;
+            padding: 10px;
+            font-size: 12px;
+            line-height: 14px;
+            font-family: Monospace;
+        }
+
+        .statsLine {
+            display: inline-flex;
+            flex-direction: row;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="container"></div>
+    <div id="stats">
+        CSG Stats:<br />
+        <div class="statsLine">CSG Operation:&nbsp;<div id="runtimeStat">0ms</div>
+        </div>
+        <div class="statsLine">Triangles:&nbsp;<div id="trianglesStat"></div>
+        </div>
+    </div>
+    <script async src="https://unpkg.com/es-module-shims@1.3.6/dist/es-module-shims.js"></script>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "./js/three.module.js",
+                "OrbitControls": "./js/OrbitControls.js",
+                "lil-gui": "./js/lil-gui.module.min.js",
+                "TransformControls": "./js/TransformControls.js",
+                "OctreeCSG": "./js/OctreeCSG/OctreeCSG.js",
+                "Octree": "./js/OctreeCSG/OctreeCSG.extended.js",
+                "Capsule": "./js/Capsule.js",
+                "STLExporter": "./js/STLExporter.js"
+            }
+        }
+	</script>
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'OrbitControls';
+        import { TransformControls } from 'TransformControls';
+        import { GUI } from 'lil-gui';
+        import { STLExporter } from 'STLExporter';
+        import OctreeCSG from 'OctreeCSG';
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(window.innerWidth, window.innerHeight);
+
+        const container = document.getElementById('container');
+        container.appendChild(renderer.domElement);
+
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x3c3c3c);
+
+        const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 10, 20);
+
+        const pointLights = [];
+        const lightsDistance = 15;
+        for (let i = 0; i < 8; i++) {
+            pointLights[i] = new THREE.PointLight(0xffffff, 1, 0);
+        }
+        pointLights[0].position.set(-lightsDistance, lightsDistance, -lightsDistance);
+        pointLights[1].position.set(lightsDistance, lightsDistance, -lightsDistance);
+        pointLights[2].position.set(-lightsDistance, lightsDistance, lightsDistance);
+        pointLights[3].position.set(lightsDistance, lightsDistance, lightsDistance);
+        pointLights[4].position.set(-lightsDistance, -lightsDistance, -lightsDistance);
+        pointLights[5].position.set(lightsDistance, -lightsDistance, -lightsDistance);
+        pointLights[6].position.set(-lightsDistance, -lightsDistance, lightsDistance);
+        pointLights[7].position.set(lightsDistance, -lightsDistance, lightsDistance);
+        scene.add(...pointLights);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+
+
+        const exporterSTL = new STLExporter();
+        const transformControls = new TransformControls(camera, renderer.domElement);
+        const pointer = new THREE.Vector2(Infinity, Infinity);
+
+        const newMatrix = new THREE.Matrix4();
+        function calcTransformMatrix(original, target) {
+            newMatrix.elements[12] = target.elements[12] - original.elements[12];
+            newMatrix.elements[13] = target.elements[13] - original.elements[13];
+            newMatrix.elements[14] = target.elements[14] - original.elements[14];
+            return newMatrix;
+        }
+
+        function exportSTL() {
+            let exportScene = new THREE.Scene();
+            let clonedObj = resultObject.clone();
+            exportScene.add(clonedObj);
+            let result = exporterSTL.parse(exportScene, { binary: true });
+            let blob = new Blob([result], { type: 'application/octet-stream' });
+            let saveLink = document.createElement('a');
+            saveLink.style.display = "none";
+            document.body.appendChild(saveLink);
+            saveLink.href = URL.createObjectURL(blob);
+            saveLink.download = "OctreeCSG Example - Basic.stl";
+            saveLink.click();
+            document.body.removeChild(saveLink);
+        }
+
+        // Start
+        const runtimeStat = document.getElementById("runtimeStat");
+        const trianglesStat = document.getElementById("trianglesStat");
+        let startTime, deltaTime;
+        let objectMoved = false;
+        const csgOperations = ["Union", "Subtract", "Intersect"];
+        const geometries = {
+            Box: new THREE.BoxGeometry(5, 5, 5),
+            Sphere: new THREE.SphereGeometry(2.5, 32, 32),
+            Cylinder: new THREE.CylinderGeometry(2, 2, 5, 32),
+            Cone: new THREE.ConeGeometry(2, 5, 32),
+            Torus: new THREE.TorusGeometry(4, 2, 16, 42),
+            TorusKnot: new THREE.TorusKnotGeometry(4, 1.5, 64, 24)
+        };
+        const geometryNames = Object.keys(geometries);
+        geometryNames.forEach(name => {
+            geometries[name].clearGroups();
+        });
+        const params = {
+            operation: csgOperations[1],
+            object1: geometryNames[0],
+            object2: geometryNames[1],
+            export: exportSTL
+        }
+        let csgOp = params.operation.toLowerCase();
+
+        transformControls.setSize(0.5);
+        transformControls.addEventListener('dragging-changed', e => {
+            controls.enabled = !e.value;
+        });
+        transformControls.addEventListener('objectChange', () => {
+            objectMoved = true;
+        });
+
+        const gui = new GUI();
+        gui.add(params, 'operation', csgOperations).name('Operation').onChange(value => {
+            csgOp = value.toLowerCase();
+            objectMoved = true;
+        });
+        gui.add(params, 'object1', geometryNames).name('Object 1').onChange(value => {
+            try {
+                object1_bg.geometry = geometries[value];
+                object1Octree = OctreeCSG.fromMesh(object1_bg);
+                object1Octree.setPolygonIndex(0);
+                objectMoved = true;
+            }
+            catch (e) {
+                console.warn('Error while changing object', e);
+            }
+        });
+        gui.add(params, 'object2', geometryNames).name('Object 2').onChange(value => {
+            try {
+                object2_bg.geometry = geometries[value];
+                object2Octree = OctreeCSG.fromMesh(object2_bg);
+                object2Octree.setPolygonIndex(1);
+                objectMoved = true;
+            }
+            catch (e) {
+                console.warn('Error while changing object', e);
+            }
+        });
+        gui.add(params, 'export').name('Export STL');
+
+
+        let object1Geometry = geometries[params.object1];
+        let object2Geometry = geometries[params.object2];
+
+        const object1Material = new THREE.MeshStandardMaterial({
+            color: 0x0000ff,
+            roughness: 0.3,
+            metalness: 0.5,
+        });
+        const object2Material = new THREE.MeshStandardMaterial({
+            color: 0xff0000,
+            roughness: 0.3,
+            metalness: 0.5,
+        });
+        const object1Material_bg = new THREE.MeshStandardMaterial({
+            color: 0x0000ff,
+            roughness: 0.3,
+            metalness: 0.5,
+            transparent: true,
+            opacity: 0.15
+        });
+        const object2Material_bg = new THREE.MeshStandardMaterial({
+            color: 0xff0000,
+            roughness: 0.3,
+            metalness: 0.5,
+            transparent: true,
+            opacity: 0.15
+        });
+
+        const resultObject = new THREE.Mesh(object1Geometry, object1Material);
+
+
+        const object1_bg = new THREE.Mesh(object1Geometry, object1Material_bg);
+        const object1Octree = OctreeCSG.fromMesh(object1_bg);
+        object1Octree.setPolygonIndex(0);
+        const object2_bg = new THREE.Mesh(object2Geometry, object2Material_bg);
+        object2_bg.position.set(5, 2, 1);
+        const object2Octree = OctreeCSG.fromMesh(object2_bg);
+        object2Octree.setPolygonIndex(1);
+
+
+
+        scene.add(object1_bg, object2_bg);
+        transformControls.attach(object2_bg);
+        scene.add(transformControls);
+        scene.add(resultObject);
+
+        let originalMatrix = object2_bg.matrix.clone();
+
+        let firstCSG = true;
+        let mouseClicked = false;
+        container.addEventListener('mousedown', () => {
+            mouseClicked = true;
+        });
+
+        document.addEventListener('mouseup', () => {
+            mouseClicked = false;
+        });
+
+        document.body.addEventListener('mousemove', event => {
+            pointer.x = (event.clientX / window.innerWidth) * 2 - 1;
+            pointer.y = - (event.clientY / window.innerHeight) * 2 + 1;
+        });
+
+        window.addEventListener('resize', onWindowResize);
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        let isRendering = false;
+
+        trianglesStat.innerText = `${object1Octree.getPolygons().length}`;
+
+        render();
+
+        function render() {
+            requestAnimationFrame(render);
+            if (!isRendering) {
+                isRendering = true;
+
+                if (objectMoved) {
+                    objectMoved = false;
+                    object2_bg.updateMatrix();
+
+                    startTime = performance.now();
+                    let newTransformedMatrix = calcTransformMatrix(originalMatrix, object2_bg.matrix);
+                    object2Octree.applyMatrix(newTransformedMatrix);
+                    originalMatrix = object2_bg.matrix.clone();
+                    let resultOctree = OctreeCSG[csgOp](object1Octree.clone(), object2Octree.clone(), false);
+                    resultObject.geometry.dispose();
+                    resultObject.geometry = OctreeCSG.toGeometry(resultOctree);
+                    if (firstCSG) {
+                        firstCSG = false;
+                        resultObject.material = [object1Material, object2Material];
+                    }
+                    deltaTime = performance.now() - startTime;
+
+                    runtimeStat.innerText = `${Math.round(deltaTime)}ms`;
+                    trianglesStat.innerText = `${resultOctree.getPolygons().length}`;
+                    resultOctree.delete();
+                }
+                renderer.render(scene, camera);
+                isRendering = false;
+            }
+
+        }
+
+    </script>
+</body>
+
+</html>

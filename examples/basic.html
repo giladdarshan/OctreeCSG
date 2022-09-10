@@ -184,6 +184,7 @@
         gui.add(params, 'object1', geometryNames).name('Object 1').onChange(value => {
             try {
                 object1_bg.geometry = geometries[value];
+                object1Octree.delete();
                 object1Octree = OctreeCSG.fromMesh(object1_bg);
                 object1Octree.setPolygonIndex(0);
                 objectMoved = true;
@@ -195,6 +196,7 @@
         gui.add(params, 'object2', geometryNames).name('Object 2').onChange(value => {
             try {
                 object2_bg.geometry = geometries[value];
+                object2Octree.delete();
                 object2Octree = OctreeCSG.fromMesh(object2_bg);
                 object2Octree.setPolygonIndex(1);
                 objectMoved = true;
@@ -238,11 +240,11 @@
 
 
         const object1_bg = new THREE.Mesh(object1Geometry, object1Material_bg);
-        const object1Octree = OctreeCSG.fromMesh(object1_bg);
+        let object1Octree = OctreeCSG.fromMesh(object1_bg);
         object1Octree.setPolygonIndex(0);
         const object2_bg = new THREE.Mesh(object2Geometry, object2Material_bg);
         object2_bg.position.set(5, 2, 1);
-        const object2Octree = OctreeCSG.fromMesh(object2_bg);
+        let object2Octree = OctreeCSG.fromMesh(object2_bg);
         object2Octree.setPolygonIndex(1);
 
         scene.add(object1_bg, object2_bg);

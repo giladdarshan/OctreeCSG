@@ -272,7 +272,8 @@ The following flags and variables control how OctreeCSG operates.
 <br/>
 
 ## Examples
-- CSG Operations on basic geometries - [example](https://giladdarshan.github.io/OctreeCSG/examples/basic.html)
+- [CSG Operations on basic geometries](https://giladdarshan.github.io/OctreeCSG/examples/basic.html)
+- [Real-Time CSG](https://giladdarshan.github.io/OctreeCSG/examples/realtime1.html) - Demonstrating the use of async CSG operations (OctreeCSG.async.operation & OctreeCSG.async.unionArray) in real-time CSG
 
 More examples coming soon.
 <br/>

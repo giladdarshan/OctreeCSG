@@ -231,12 +231,12 @@ class STLLoader extends Loader {
 					const componentIdx = ( face * 3 * 3 ) + ( ( i - 1 ) * 3 );
 
 					vertices[ componentIdx ] = reader.getFloat32( vertexstart, true );
-					vertices[ componentIdx + 1 ] = reader.getFloat32( vertexstart + 4, true );
-					vertices[ componentIdx + 2 ] = reader.getFloat32( vertexstart + 8, true );
+					vertices[ componentIdx + 2 ] = -reader.getFloat32( vertexstart + 4, true );
+					vertices[ componentIdx + 1 ] = reader.getFloat32( vertexstart + 8, true );
 
 					normals[ componentIdx ] = normalX;
-					normals[ componentIdx + 1 ] = normalY;
-					normals[ componentIdx + 2 ] = normalZ;
+					normals[ componentIdx + 1 ] = normalZ;
+					normals[ componentIdx + 2 ] = -normalY;
 
 					if ( hasColors ) {
 

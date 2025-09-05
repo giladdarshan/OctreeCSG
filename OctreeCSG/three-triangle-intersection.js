@@ -4,7 +4,7 @@ const _v2 = new Vector3();
 const _v3 = new Vector3();
 
 // https://github.com/benardp/contours/blob/master/freestyle/view_map/triangle_triangle_intersection.c
-function triangleIntersectsTriangle(triangleA, triangleB, additions = { coplanar: false, source: new Vector3(), target: new Vector3() }) {    
+function triangleIntersectsTriangle(triangleA, triangleB, additions = { coplanar: false, source: new Vector3(), target: new Vector3() }) {
     let p1 = triangleA.a;
     let q1 = triangleA.b;
     let r1 = triangleA.c;
@@ -34,7 +34,7 @@ function triangleIntersectsTriangle(triangleA, triangleB, additions = { coplanar
         return false;
     }
 
-    // Compute distance signs  of p2, q2 and r2 
+    // Compute distance signs  of p2, q2 and r2
     // to the plane of triangleA (p1,q1,r1)
     _v1.copy(q1).sub(p1);
     _v2.copy(r1).sub(p1);
@@ -242,7 +242,7 @@ function tri_tri_overlap_test_2d(p1, q1, r1, p2, q2, r2) {
 }
 
 function ORIENT_2D(a, b, c) {
-    return ((a.x - c.x) * (b.y - c.y) - (a.y - c.y) * (b.x - c.y));
+    return ((a.x - c.x) * (b.y - c.y) - (a.y - c.y) * (b.x - c.x));
 }
 
 function ccw_tri_tri_intersection_2d(p1, q1, r1, p2, q2, r2) {

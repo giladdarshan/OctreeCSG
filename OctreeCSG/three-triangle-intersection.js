@@ -191,22 +191,22 @@ function coplanar_tri_tri3d(p1, q1, r1, p2, q2, r2, normal_1, normal_2) {
     the projection is maximized. */
 
     if ((n_x > n_z) && (n_x >= n_y)) { // Project onto plane YZ
-        P1.x = q1.z, P1.y = q1.y;
-        Q1.x = p1.z, Q1.y = p1.y;
-        R1.x = r1.z, R1.y = r1.y;
+        P1.z = p1.z, P1.y = p1.y;
+        Q1.z = q1.z, Q1.y = q1.y;
+        R1.z = r1.z, R1.y = r1.y;
 
-        P2.x = q2.z, P2.y = q2.y;
-        Q2.x = p2.z, Q2.y = p2.y;
-        R2.x = r2.z, R2.y = r2.y;
+        P2.z = p2.z, P2.y = p2.y;
+        Q2.z = q2.z, Q2.y = q2.y;
+        R2.z = r2.z, R2.y = r2.y;
     }
     else if ((n_y > n_z) && (n_y >= n_x)) { // Project onto plane XZ
-        P1.x = q1.x, P1.y = q1.z;
-        Q1.x = p1.x, Q1.y = p1.z;
-        R1.x = r1.x, R1.y = r1.z;
+        P1.x = p1.x, P1.z = p1.z;
+        Q1.x = q1.x, Q1.z = q1.z;
+        R1.x = r1.x, R1.z = r1.z;
 
-        P2.x = q2.x, P2.y = q2.z;
-        Q2.x = p2.x, Q2.y = p2.z;
-        R2.x = r2.x, R2.y = r2.z;
+        P2.x = p2.x, P2.z = p2.z;
+        Q2.x = q2.x, Q2.z = q2.z;
+        R2.x = r2.x, R2.z = r2.z;
     }
     else { // Project onto plane XY
         P1.x = p1.x, P1.y = p1.y;
